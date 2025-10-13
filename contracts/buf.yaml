@@ -1,0 +1,8 @@
+version: v2
+modules:
+  - path: proto/dna
+lint:
+  use:
+    - DEFAULT
+breaking:
+  # breaking check'i CLI'da çalıştıracağız (aşağıda)

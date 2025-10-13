@@ -1,0 +1,13 @@
+syntax = "proto3";
+package dna.decision.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Alert {
+  string alert_id = 1;
+  string kind = 2;                  // e.g., "suspicious_login"
+  string severity = 3;              // low|medium|high
+  map<string,string> tags = 4;      // tenant, user, device...
+  string summary = 5;
+  google.protobuf.Timestamp ts = 6;
+}

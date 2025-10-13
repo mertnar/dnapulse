@@ -1,0 +1,17 @@
+syntax = "proto3";
+package dna.model.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message InferenceRequest {
+  string model = 1;   // "anomaly-zscore:v1"
+  bytes features = 2; // serialized feature vector (e.g., JSON or Arrow)
+  map<string,string> ctx = 3; // tenant_id, user_id...
+}
+
+message InferenceResponse {
+  string model = 1;
+  double score = 2;
+  string label = 3;      // "normal" | "anomaly" | ...
+  google.protobuf.Timestamp ts = 4;
+}

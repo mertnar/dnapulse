@@ -1,0 +1,159 @@
+services:
+  # Message Bus - Redpanda
+  bus:
+    image: redpandadata/redpanda:v23.3.5
+    container_name: dna-bus
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://bus:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://bus:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr bus:33145
+      - --advertise-rpc-addr bus:33145
+      - --smp 1
+      - --memory 1G
+      - --mode dev-container
+      - --default-log-level=info
+    ports:
+      - '19092:19092'
+      - '18081:18081'
+      - '18082:18082'
+      - '9644:9644'
+    healthcheck:
+      test: ['CMD-SHELL', "rpk cluster health | grep 'Healthy:.*true' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dna-net
+
+  # Database - MongoDB
+  mongo:
+    image: mongo:7.0
+    container_name: dna-mongo
+    ports:
+      - '27018:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - dna-net
+
+  # Search & Analytics - Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: dna-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+    ports:
+      - '9200:9200'
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:9200/_cluster/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - dna-net
+
+  # Visualization - Kibana
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: dna-kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - '5601:5601'
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:5601/api/status || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - dna-net
+
+  # Ingestion Service (Go)
+  ingestion:
+    build:
+      context: ../../services/ingestion
+      dockerfile: Dockerfile
+    container_name: dna-ingestion
+    ports:
+      - '8080:8080'
+    environment:
+      - KAFKA_BROKERS=bus:9092
+      - KAFKA_TOPIC=ingestion.raw.v1
+      - HTTP_PORT=8080
+    depends_on:
+      bus:
+        condition: service_healthy
+    networks:
+      - dna-net
+    restart: unless-stopped
+
+  # Processing Service (Go)
+  processing:
+    build:
+      context: ../../services/processing
+      dockerfile: Dockerfile
+    container_name: dna-processing
+    environment:
+      - KAFKA_BROKERS=bus:9092
+      - KAFKA_INPUT_TOPIC=ingestion.raw.v1
+      - KAFKA_OUTPUT_TOPIC=processing.cleaned.v1
+      - KAFKA_GROUP_ID=processing-service
+    depends_on:
+      bus:
+        condition: service_healthy
+    networks:
+      - dna-net
+    restart: unless-stopped
+
+  # Decision Service (TypeScript)
+  decision:
+    build:
+      context: ../../services/decision
+      dockerfile: Dockerfile
+    container_name: dna-decision
+    environment:
+      - KAFKA_BROKERS=bus:9092
+      - KAFKA_INPUT_TOPIC=processing.cleaned.v1
+      - KAFKA_GROUP_ID=decision-service
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX=alerts
+    depends_on:
+      bus:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - dna-net
+    restart: unless-stopped
+
+networks:
+  dna-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
+  es-data:

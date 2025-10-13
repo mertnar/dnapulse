@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dna.local/schemas/processing.rules.schema.json",
+  "type": "object",
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "normalization": {
+      "type": "object",
+      "properties": {
+        "timestamp": { "enum": ["rfc3339"] },
+        "drop_fields": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "enrichment": {
+      "type": "object",
+      "properties": {
+        "geoip": {
+          "type": "object",
+          "properties": { "field": { "type": "string" } },
+          "required": ["field"]
+        }
+      }
+    }
+  },
+  "required": ["version"]
+}

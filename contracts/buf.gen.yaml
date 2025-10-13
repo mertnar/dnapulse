@@ -1,0 +1,15 @@
+version: v1
+plugins:
+  - name: go
+    out: ../sdks/go-sdk/gen
+    opt: paths=source_relative
+  - name: go-grpc
+    out: ../sdks/go-sdk/gen
+    opt:
+      - paths=source_relative
+  - name: es
+    out: ../sdks/ts-sdk/gen
+    opt:
+      - target=ts
+  - name: python
+    out: ../sdks/py-sdk/gen

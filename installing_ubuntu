@@ -1,0 +1,35 @@
+# temel
+sudo apt update && sudo apt install -y build-essential git curl unzip jq make cmake pkg-config \
+  libssl-dev libffi-dev zlib1g-dev clang-format
+
+# Docker + compose plugin
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER
+
+# Node.js (LTS) + pnpm
+curl -fsSL https://fnm.vercel.app/install | bash
+source ~/.bashrc && fnm install --lts && fnm use lts-latest && fnm default lts-latest
+corepack enable && corepack prepare pnpm@latest --activate
+
+# Go (1.22+)
+curl -LO https://go.dev/dl/go1.22.5.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.22.5.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc && source ~/.bashrc
+
+# Python (uv – hızlı yöneticidir) veya pyenv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# örn. uv python install 3.11
+
+# Protobuf & buf
+PROTO_VERSION=28.2
+curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTO_VERSION}/protoc-${PROTO_VERSION}-linux-x86_64.zip
+sudo unzip -o protoc-*.zip -d /usr/local
+curl -sSL https://github.com/bufbuild/buf/releases/latest/download/buf-Linux-x86_64 -o buf && sudo mv buf /usr/local/bin && sudo chmod +x /usr/local/bin/buf
+
+# Kafka alternatif Redpanda CLI (rpk)
+curl -1sLf https://packages.vectorized.io/install.sh | bash
+
+# K8s tool’ları
+curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+curl -sS https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64 && chmod +x ./kind && sudo mv kind /usr/local/bin/

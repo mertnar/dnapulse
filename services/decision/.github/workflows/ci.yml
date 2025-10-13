@@ -1,0 +1,189 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  GO_VERSION: '1.21'
+  NODE_VERSION: '20'
+
+jobs:
+  lint-and-format:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files
+
+  protobuf-lint:
+    name: Protobuf Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint protobuf files
+        run: buf lint
+
+      - name: Check protobuf breaking changes
+        run: buf breaking --against '.git#branch=main'
+
+  go-tests:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [ingestion, processing]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        working-directory: services/${{ matrix.service }}
+        run: go mod download
+
+      - name: Run tests
+        working-directory: services/${{ matrix.service }}
+        run: go test -v ./...
+
+      - name: Run linter
+        working-directory: services/${{ matrix.service }}
+        run: golangci-lint run --timeout=5m
+
+  decision-build:
+    name: Decision Service Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        working-directory: services/decision
+        run: npm ci
+
+      - name: Build TypeScript
+        working-directory: services/decision
+        run: npm run build
+
+      - name: Run TypeScript linter
+        working-directory: services/decision
+        run: npx eslint src/ --ext .ts
+
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, protobuf-lint, go-tests, decision-build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start local stack
+        run: |
+          make up
+          sleep 30  # Wait for services to be healthy
+
+      - name: Bootstrap topics and indices
+        run: make seed
+
+      - name: Test ingestion endpoint
+        run: |
+          response=$(curl -s -w "%{http_code}" -X POST http://localhost:8080/ingest \
+            -H 'Content-Type: application/json' \
+            -d '{"metric":"cpu_usage","value":95.5,"source":"test-server"}')
+          echo "Response: $response"
+          if [[ "$response" != *"202"* ]]; then
+            echo "Ingestion test failed"
+            exit 1
+          fi
+
+      - name: Wait for event processing
+        run: sleep 10
+
+      - name: Check Elasticsearch alerts
+        run: |
+          alerts=$(curl -s "http://localhost:9200/alerts/_count" | jq '.count')
+          echo "Alerts count: $alerts"
+          if [ "$alerts" -lt 1 ]; then
+            echo "No alerts found in Elasticsearch"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: make down
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'

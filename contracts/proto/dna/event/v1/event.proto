@@ -1,0 +1,51 @@
+syntax = "proto3";
+package dna.event.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Trace {
+  string trace_id = 1;
+  string span_id  = 2;
+}
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_TYPE_METRIC = 1;
+  EVENT_TYPE_LOG = 2;
+  EVENT_TYPE_TEXT = 3;
+  EVENT_TYPE_IMAGE_REF = 4;
+  EVENT_TYPE_CUSTOM = 5;
+}
+
+message MetricBody {
+  string name = 1;
+  double value = 2;
+  string unit = 3;
+}
+
+message LogBody {
+  string level = 1;     // info|warn|error
+  string message = 2;
+}
+
+message TextBody { string text = 1; }
+message ImageRef { string uri = 1; } // s3://..., file://..., http...
+
+message Event {
+  string event_id = 1;
+  string source = 2;                        // agent://host123/cpu
+  EventType type = 3;
+  google.protobuf.Timestamp ts = 4;
+  map<string,string> attributes = 5;        // tenant_id, schema_ver...
+  Trace trace = 6;
+
+  oneof body {
+    MetricBody metric = 10;
+    LogBody log = 11;
+    TextBody text = 12;
+    ImageRef image_ref = 13;
+  }
+}
+
+// NOT: Yeni alan eklerken yeni tag numarası ver, numaraları ASLA yeniden kullanma.
+// 19000-19999 arası protoc tarafından rezerve edilmiştir (kullanmamalısın).
