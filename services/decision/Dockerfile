@@ -4,12 +4,12 @@ FROM node:20-alpine AS builder
 WORKDIR /build
 
 # Copy package files
-COPY package.json package-lock.json ./
+COPY services/decision/package.json services/decision/package-lock.json ./
 RUN npm ci
 
 # Copy source code
-COPY tsconfig.json ./
-COPY src ./src
+COPY services/decision/tsconfig.json ./
+COPY services/decision/src ./src
 
 # Build TypeScript
 RUN npm run build
@@ -20,7 +20,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy package files and install production dependencies only
-COPY package.json package-lock.json ./
+COPY services/decision/package.json services/decision/package-lock.json ./
 RUN npm ci --only=production
 
 # Copy built files

@@ -1,0 +1,115 @@
+{{- if .Values.security.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "dna-platform.fullname" . }}-network-policy
+  labels:
+    {{- include "dna-platform.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  {{- if .Values.security.networkPolicy.defaultDenyAll }}
+  ingress: []
+  egress: []
+  {{- else }}
+  ingress:
+  {{- if .Values.security.networkPolicy.allowSameNamespace }}
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: {{ .Release.Namespace }}
+  {{- end }}
+  # Allow ingress from kube-system for health checks
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8081
+  # Allow ingress for infrastructure components
+  - from:
+    - podSelector:
+        matchLabels:
+          {{- include "dna-platform.selectorLabels" . | nindent 10 }}
+    ports:
+    - protocol: TCP
+      port: 9092  # Kafka
+    - protocol: TCP
+      port: 27017 # MongoDB
+    - protocol: TCP
+      port: 9200  # Elasticsearch
+    - protocol: TCP
+      port: 5601  # Kibana
+    - protocol: TCP
+      port: 8080  # Services
+    - protocol: TCP
+      port: 8081  # Metrics
+  egress:
+  # Allow egress to same namespace
+  {{- if .Values.security.networkPolicy.allowSameNamespace }}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: {{ .Release.Namespace }}
+  {{- end }}
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow HTTPS for external dependencies (image pulls, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow HTTP for health checks
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 80
+  {{- end }}
+---
+# NetworkPolicy for infrastructure components
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "dna-platform.fullname" . }}-infra-network-policy
+  labels:
+    {{- include "dna-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "dna-platform.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from same namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: {{ .Release.Namespace }}
+  # Allow ingress for health checks
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 9092  # Kafka
+    - protocol: TCP
+      port: 27017 # MongoDB
+    - protocol: TCP
+      port: 9200  # Elasticsearch
+    - protocol: TCP
+      port: 5601  # Kibana
+    - protocol: TCP
+      port: 9644  # Redpanda metrics
+  egress:
+  # Allow all egress for infrastructure
+  - {}
+{{- end }}

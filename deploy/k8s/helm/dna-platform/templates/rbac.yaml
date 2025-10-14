@@ -1,0 +1,46 @@
+{{- if .Values.rbac.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "dna-platform.serviceAccountName" . }}
+  labels:
+    {{- include "dna-platform.labels" . | nindent 4 }}
+  {{- with .Values.security.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+---
+{{- if and .Values.rbac.create .Values.services.processing.hpa.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "dna-platform.fullname" . }}-hpa-role
+  labels:
+    {{- include "dna-platform.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "dna-platform.fullname" . }}-hpa-rolebinding
+  labels:
+    {{- include "dna-platform.labels" . | nindent 4 }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "dna-platform.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "dna-platform.fullname" . }}-hpa-role
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

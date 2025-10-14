@@ -1,0 +1,21 @@
+apiVersion: v2
+name: dna-platform
+description: DNA Platform - Event Processing Pipeline
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/mertnar/dna-platform
+sources:
+  - https://github.com/mertnar/dna-platform
+maintainers:
+  - name: DNA Platform Team
+    email: team@dnasol.com
+keywords:
+  - event-processing
+  - kafka
+  - elasticsearch
+  - monitoring
+  - microservices
+annotations:
+  category: Infrastructure
+  licenses: Apache-2.0

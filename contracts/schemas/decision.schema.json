@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Decision Policies Configuration",
+  "description": "Schema for decision service policy configuration",
+  "type": "object",
+  "properties": {
+    "alerts": {
+      "type": "array",
+      "description": "Array of decision policies",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique policy identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable policy name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Policy description"
+          },
+          "conditions": {
+            "type": "array",
+            "description": "Conditions that must be met for policy to apply",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "description": "Field to evaluate"
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": ["eq", "ne", "gt", "lt", "gte", "lte", "contains", "regex", "in", "not_in"],
+                  "description": "Comparison operator"
+                },
+                "value": {
+                  "description": "Value to compare against"
+                },
+                "logical_operator": {
+                  "type": "string",
+                  "enum": ["AND", "OR"],
+                  "default": "AND",
+                  "description": "Logical operator for combining conditions"
+                }
+              },
+              "required": ["field", "operator", "value"]
+            }
+          },
+          "actions": {
+            "type": "array",
+            "description": "Actions to perform when policy conditions are met",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["create_alert", "send_notification", "escalate", "suppress", "enrich", "route"],
+                  "description": "Action type"
+                },
+                "parameters": {
+                  "type": "object",
+                  "description": "Action-specific parameters",
+                  "properties": {
+                    "alert_level": {
+                      "type": "string",
+                      "enum": ["info", "warning", "error", "critical"]
+                    },
+                    "notification_channels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "escalation_level": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "suppression_duration": {
+                      "type": "integer",
+                      "minimum": 60,
+                      "description": "Suppression duration in seconds"
+                    },
+                    "enrichment_fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "route_target": {
+                      "type": "string",
+                      "description": "Target for routing"
+                    }
+                  }
+                }
+              },
+              "required": ["type"]
+            }
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether the policy is enabled"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Policy priority (lower numbers = higher priority)"
+          },
+          "cooldown": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 300,
+            "description": "Cooldown period in seconds between policy executions"
+          }
+        },
+        "required": ["id", "name", "conditions", "actions"]
+      }
+    },
+    "settings": {
+      "type": "object",
+      "description": "Decision service settings",
+      "properties": {
+        "max_policies": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100,
+          "description": "Maximum number of policies"
+        },
+        "evaluation_timeout": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 300000,
+          "default": 10000,
+          "description": "Policy evaluation timeout in milliseconds"
+        },
+        "batch_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "default": 100,
+          "description": "Batch size for processing events"
+        },
+        "parallel_evaluation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to evaluate policies in parallel"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Configuration metadata",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Configuration version"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        },
+        "updated_by": {
+          "type": "string",
+          "description": "User who last updated the configuration"
+        }
+      }
+    }
+  },
+  "required": ["alerts"],
+  "additionalProperties": false
+}

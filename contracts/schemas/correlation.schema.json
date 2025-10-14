@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Correlation Configuration Schema",
+  "description": "Schema for correlation service configuration",
+  "properties": {
+    "window_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 86400,
+      "description": "Time window in seconds for correlation grouping"
+    },
+    "group_by": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "host",
+          "environment", 
+          "severity",
+          "source",
+          "event_type",
+          "metric_name"
+        ]
+      },
+      "minItems": 1,
+      "description": "Fields to group events by for correlation"
+    },
+    "emit_if": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^count\\s*[><=]+\\s*\\d+$"
+      },
+      "minItems": 1,
+      "description": "Conditions for when to emit correlation records"
+    }
+  },
+  "required": ["window_seconds", "group_by", "emit_if"],
+  "additionalProperties": false
+}

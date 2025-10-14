@@ -1,1 +1,33 @@
-# Decision policies configuration
+alerts:
+  - id: high_cpu
+    when: 'type=="metric" and payload.name=="cpu_load" and payload.value>0.9'
+    actions:
+      - type: "index-es"
+        index: "alerts"
+      - type: "webhook"
+        url: "http://example.local/hook"
+  
+  - id: critical_memory
+    when: 'type=="metric" and payload.name=="memory_usage" and payload.value>0.95'
+    actions:
+      - type: "index-es"
+        index: "critical-alerts"
+      - type: "webhook"
+        url: "http://example.local/critical-hook"
+  
+  - id: error_log
+    when: 'type=="log" and payload.level=="error"'
+    actions:
+      - type: "index-es"
+        index: "error-logs"
+
+settings:
+  max_policies: 100
+  evaluation_timeout: 10000
+  batch_size: 100
+  parallel_evaluation: true
+
+metadata:
+  version: "1.0.0"
+  updated_at: "2025-10-14T00:00:00Z"
+  updated_by: "platform-admin"

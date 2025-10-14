@@ -10,6 +10,7 @@ import (
 	"time"
 
 	eventv1 "github.com/dnasol/dna-platform/sdks/go-sdk/gen/event/v1"
+	"github.com/dnasol/dna-platform/services/processing/pkg/rules"
 	"github.com/segmentio/kafka-go"
 	"google.golang.org/protobuf/proto"
 )
@@ -20,12 +21,27 @@ func main() {
 	inputTopic := getEnv("KAFKA_INPUT_TOPIC", "ingestion.raw.v1")
 	outputTopic := getEnv("KAFKA_OUTPUT_TOPIC", "processing.cleaned.v1")
 	groupID := getEnv("KAFKA_GROUP_ID", "processing-service")
+	configURL := getEnv("CONFIG_URL", "http://config:8080")
+	configScope := getEnv("CONFIG_SCOPE", "processing")
+
+	// Initialize rule engine
+	ruleEngine := rules.NewRuleEngine(configURL, configScope)
+	log.Printf("Rule engine initialized")
+
+	// Load initial rules
+	ctx := context.Background()
+	if err := ruleEngine.LoadRules(ctx); err != nil {
+		log.Printf("Warning: Failed to load initial rules: %v", err)
+		log.Printf("Using empty rules configuration")
+	}
 
 	log.Printf("Processing service starting...")
 	log.Printf("Kafka brokers: %s", kafkaBrokers)
 	log.Printf("Input topic: %s", inputTopic)
 	log.Printf("Output topic: %s", outputTopic)
 	log.Printf("Consumer group: %s", groupID)
+	log.Printf("Config URL: %s", configURL)
+	log.Printf("Config scope: %s", configScope)
 	log.Printf("Format: protobuf")
 
 	// Create Kafka reader (consumer)
@@ -53,6 +69,14 @@ func main() {
 	// Setup graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Start hot reload in background
+	go func() {
+		log.Printf("Starting rules hot reload...")
+		if err := ruleEngine.StartHotReload(ctx); err != nil {
+			log.Printf("Rules hot reload error: %v", err)
+		}
+	}()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -86,7 +110,7 @@ func main() {
 			}
 
 			// Process the message
-			if err := processMessage(ctx, msg, writer); err != nil {
+			if err := processMessage(ctx, msg, writer, ruleEngine); err != nil {
 				log.Printf("Error processing message: %v", err)
 				continue
 			}
@@ -94,7 +118,7 @@ func main() {
 	}
 }
 
-func processMessage(ctx context.Context, msg kafka.Message, writer *kafka.Writer) error {
+func processMessage(ctx context.Context, msg kafka.Message, writer *kafka.Writer, ruleEngine *rules.RuleEngine) error {
 	// Parse protobuf event
 	var rawEvent eventv1.Event
 	if err := proto.Unmarshal(msg.Value, &rawEvent); err != nil {
@@ -104,8 +128,15 @@ func processMessage(ctx context.Context, msg kafka.Message, writer *kafka.Writer
 
 	log.Printf("Processing event (protobuf): %s", rawEvent.EventId)
 
-	// Normalize and enrich the event
-	enrichedEvent := normalizeEvent(&rawEvent)
+	// Apply processing rules
+	processedEvent, err := ruleEngine.ProcessEvent(ctx, &rawEvent)
+	if err != nil {
+		log.Printf("Failed to process event with rules: %v", err)
+		return err
+	}
+
+	// Apply legacy normalization (for backward compatibility)
+	enrichedEvent := normalizeEvent(processedEvent)
 
 	// Serialize enriched event
 	enrichedBytes, err := proto.Marshal(enrichedEvent)

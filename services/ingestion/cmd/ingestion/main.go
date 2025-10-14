@@ -13,11 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	eventv1 "github.com/dnasol/dna-platform/sdks/go-sdk/gen/event/v1"
+	"github.com/dnasol/dna-platform/services/ingestion/pkg/config"
+	"github.com/dnasol/dna-platform/services/ingestion/pkg/ratelimit"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/segmentio/kafka-go"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type IngestRequest struct {
@@ -26,13 +25,32 @@ type IngestRequest struct {
 	Source string  `json:"source"`
 }
 
-var kafkaWriter *kafka.Writer
+var (
+	kafkaWriter   *kafka.Writer
+	configManager *config.ConfigManager
+	rateLimiter   *ratelimit.TokenBucket
+)
 
 func main() {
 	// Configuration from environment
 	kafkaBrokers := getEnv("KAFKA_BROKERS", "localhost:9092")
 	kafkaTopic := getEnv("KAFKA_TOPIC", "ingestion.raw.v1")
 	httpPort := getEnv("HTTP_PORT", "8080")
+
+	// Initialize configuration manager
+	configManager = config.NewConfigManager()
+	log.Printf("Config manager initialized")
+
+	// Load initial configuration
+	ctx := context.Background()
+	if err := configManager.LoadConfig(ctx); err != nil {
+		log.Printf("Warning: Failed to load initial config: %v", err)
+		log.Printf("Using default configuration")
+	}
+
+	// Initialize rate limiter with config
+	rateLimitRPS := configManager.GetRateLimitRPS()
+	rateLimiter = ratelimit.NewTokenBucket(int64(rateLimitRPS*2), int64(rateLimitRPS)) // 2x capacity, refill at RPS rate
 
 	// Initialize Kafka writer
 	kafkaWriter = &kafka.Writer{
@@ -49,11 +67,18 @@ func main() {
 	log.Printf("Kafka topic: %s", kafkaTopic)
 	log.Printf("HTTP port: %s", httpPort)
 	log.Printf("JWT validation: %s", getEnv("JWT_ISSUER", "disabled"))
+	log.Printf("Rate limit: %d RPS", rateLimitRPS)
 
 	// HTTP server setup
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ingest", jwtMiddleware(handleIngest))
 	mux.HandleFunc("/health", handleHealth)
+
+	// Add config debug endpoint if debug mode is enabled
+	if configManager.GetDebugMode() {
+		mux.HandleFunc("/config/debug", handleConfigDebug)
+		log.Printf("Debug mode enabled - /config/debug endpoint available")
+	}
 
 	server := &http.Server{
 		Addr:         ":" + httpPort,
@@ -66,6 +91,15 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Start hot reload in background
+	go func() {
+		log.Printf("Starting config hot reload...")
+		if err := configManager.StartHotReload(ctx); err != nil {
+			log.Printf("Config hot reload error: %v", err)
+		}
+	}()
+
+	// Start HTTP server
 	go func() {
 		log.Printf("HTTP server listening on :%s", httpPort)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -158,13 +192,30 @@ func handleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read request body
-	body, err := io.ReadAll(r.Body)
+	// Rate limiting
+	if !rateLimiter.Allow() {
+		http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+		return
+	}
+
+	// Read request body with size limit
+	maxBodySize := configManager.GetMaxBodySize()
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize))
 	if err != nil {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
+
+	// Check if body was truncated
+	if len(body) == int(maxBodySize) {
+		// Try to read one more byte to see if there's more data
+		var extra [1]byte
+		if _, err := r.Body.Read(extra[:]); err == nil {
+			http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+	}
 
 	// Parse JSON request
 	var req IngestRequest
@@ -173,29 +224,33 @@ func handleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create protobuf Event
+	// Check if source is allowed
+	if !configManager.IsSourceAllowed(req.Source) {
+		http.Error(w, "Source not allowed", http.StatusForbidden)
+		return
+	}
+
+	// Create JSON event (Protobuf will be enabled after proper code generation)
 	eventID := generateEventID()
-	event := &eventv1.Event{
-		EventId: eventID,
-		Source:  req.Source,
-		Type:    eventv1.EventType_METRIC,
-		Ts:      timestamppb.Now(),
-		Attributes: map[string]string{
+	jsonEvent := map[string]interface{}{
+		"event_id": eventID,
+		"source":   req.Source,
+		"type":     "metric",
+		"ts":       time.Now().Format(time.RFC3339),
+		"attributes": map[string]string{
 			"ingestion_ts": time.Now().Format(time.RFC3339),
 		},
-		Body: &eventv1.Event_Metric{
-			Metric: &eventv1.MetricBody{
-				Name:  req.Metric,
-				Value: req.Value,
-				Unit:  "",
-			},
+		"metric": map[string]interface{}{
+			"name":  req.Metric,
+			"value": req.Value,
+			"unit":  "",
 		},
 	}
 
-	// Serialize to protobuf binary
-	eventBytes, err := proto.Marshal(event)
+	// Serialize to JSON
+	eventBytes, err := json.Marshal(jsonEvent)
 	if err != nil {
-		log.Printf("Failed to marshal protobuf: %v", err)
+		log.Printf("Failed to marshal JSON: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -224,7 +279,7 @@ func handleIngest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{
 		"event_id": eventID,
 		"status":   "accepted",
-		"format":   "protobuf",
+		"format":   "json",
 	})
 }
 
@@ -232,8 +287,41 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status": "healthy",
-		"format": "protobuf",
+		"format": "json",
 	})
+}
+
+func handleConfigDebug(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Only allow in debug mode
+	if !configManager.GetDebugMode() {
+		http.Error(w, "Debug endpoint not available", http.StatusNotFound)
+		return
+	}
+
+	config := configManager.GetConfig()
+	tokens, capacity, rate := rateLimiter.Stats()
+
+	debugInfo := map[string]interface{}{
+		"config": map[string]interface{}{
+			"allowed_sources": config.AllowedSources,
+			"max_body_kb":     config.MaxBodyKB,
+			"rate_limit_rps":  config.RateLimitRPS,
+		},
+		"rate_limiter": map[string]interface{}{
+			"tokens":      tokens,
+			"capacity":    capacity,
+			"refill_rate": rate,
+		},
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(debugInfo)
 }
 
 func generateEventID() string {

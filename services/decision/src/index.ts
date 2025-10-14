@@ -1,247 +1,214 @@
 import { Kafka, EachMessagePayload } from 'kafkajs';
-import axios from 'axios';
-import * as protobuf from 'protobufjs';
-import * as path from 'path';
+import Fastify from 'fastify';
+import pino from 'pino';
+// Note: Protobuf imports will be fixed after buf generate
+// import { Event as ProtoEvent } from '../../../sdks/ts-sdk/gen/event/v1/event_pb';
+import { PolicyEngine } from './engine/policy-engine';
+import { PluginRegistry } from './plugins/plugin-registry';
+import { ConfigClient } from './utils/config-client';
+import { EvaluationContext } from './types/policy';
 
-interface Event {
-  eventId: string;
-  source: string;
-  type: number;
-  ts?: { seconds: number; nanos: number };
-  attributes: Record<string, string>;
-  body?: {
-    metric?: {
-      name: string;
-      value: number;
-      unit: string;
-    };
+const logger = pino({
+  level: process.env['LOG_LEVEL'] || 'info',
+  transport: process.env['NODE_ENV'] === 'development' ? {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'HH:MM:ss Z',
+      ignore: 'pid,hostname'
+    }
+  } : undefined
+});
+
+// Environment configuration
+const KAFKA_BROKERS = (process.env['KAFKA_BROKERS'] || 'localhost:9092').split(',');
+const KAFKA_CLIENT_ID = process.env['KAFKA_CLIENT_ID'] || 'decision-service';
+const KAFKA_GROUP_ID = process.env['KAFKA_GROUP_ID'] || 'decision-group';
+const INPUT_TOPIC = process.env['INPUT_TOPIC'] || 'processing.cleaned.v1';
+const ELASTICSEARCH_URL = process.env['ELASTICSEARCH_URL'] || 'http://localhost:9200';
+const CONFIG_SERVICE_URL = process.env['CONFIG_SERVICE_URL'] || 'http://localhost:8083';
+const CONFIG_SCOPE = process.env['CONFIG_SCOPE'] || 'decision';
+const CONFIG_SSE_URL = process.env['CONFIG_SSE_URL'] || 'http://localhost:8083';
+const HTTP_PORT = parseInt(process.env['PORT'] || process.env['HTTP_PORT'] || '8080', 10);
+
+// Initialize components
+const pluginRegistry = new PluginRegistry(ELASTICSEARCH_URL);
+const policyEngine = new PolicyEngine(pluginRegistry);
+const configClient = new ConfigClient(CONFIG_SERVICE_URL, CONFIG_SCOPE);
+
+// Initialize Fastify for HTTP endpoints
+const fastify = Fastify({
+  logger: {
+    level: process.env['LOG_LEVEL'] || 'info'
+  }
+});
+
+// Policy debug endpoint (guarded by DEBUG=1)
+fastify.get('/policy/debug', async (_request, _reply) => {
+  if (process.env['DEBUG'] !== '1') {
+    return _reply.status(403).send({ error: 'Debug mode not enabled' });
+  }
+  
+  return {
+    policies: policyEngine.getPolicies(),
+    stats: policyEngine.getStats(),
+    config_scope: CONFIG_SCOPE,
+    config_url: CONFIG_SERVICE_URL,
+    timestamp: new Date().toISOString()
   };
+});
+
+// Health endpoint
+fastify.get('/health', async (_request, _reply) => {
+  return {
+    status: 'healthy',
+    service: 'decision',
+    policies: policyEngine.getPolicies().length,
+    plugins: pluginRegistry.list(),
+    timestamp: new Date().toISOString()
+  };
+});
+
+// Metrics endpoint (placeholder)
+fastify.get('/metrics', async (_request, _reply) => {
+  return {
+    policies_loaded: policyEngine.getPolicies().length,
+    plugins_registered: pluginRegistry.list().length
+  };
+});
+
+// Load initial policies
+async function loadPolicies() {
+  try {
+    logger.info(`Loading policies from Config Service for scope: ${CONFIG_SCOPE}...`);
+    const config = await configClient.fetchConfig();
+    policyEngine.loadPolicies(config);
+    logger.info(`Loaded ${policyEngine.getPolicies().length} policies`);
+  } catch (error) {
+    logger.error(`Failed to load policies: ${error}`);
+    // Use default empty config
+    policyEngine.loadPolicies({ alerts: [] });
+  }
 }
 
-interface Alert {
-  '@timestamp': string;
-  event_id: string;
-  event_type: string;
-  source: string;
-  severity: string;
-  metric_name: string;
-  metric_value: number;
-  threshold?: number;
-  message: string;
-  raw_data: any;
+// Subscribe to policy updates
+function subscribeToPolicyUpdates() {
+  const unsubscribe = configClient.subscribeToUpdates(
+    (config) => {
+      logger.info('Reloading policies due to config update');
+      policyEngine.loadPolicies(config);
+      logger.info(`Reloaded ${policyEngine.getPolicies().length} policies`);
+    },
+    (error) => {
+      logger.error(`Config update error: ${error.message}`);
+    }
+  );
+
+  // Handle graceful shutdown
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, unsubscribing from config updates');
+    unsubscribe();
+  });
+
+  process.on('SIGINT', () => {
+    logger.info('SIGINT received, unsubscribing from config updates');
+    unsubscribe();
+  });
 }
 
-class DecisionService {
-  private kafka: Kafka;
-  private elasticsearchUrl: string;
-  private indexName: string;
-  private eventProto: protobuf.Type | null = null;
-
-  constructor() {
-    const kafkaBrokers = (process.env.KAFKA_BROKERS || 'localhost:9092').split(',');
-    const inputTopic = process.env.KAFKA_INPUT_TOPIC || 'processing.cleaned.v1';
-    const groupId = process.env.KAFKA_GROUP_ID || 'decision-service';
-    this.elasticsearchUrl = process.env.ELASTICSEARCH_URL || 'http://localhost:9200';
-    this.indexName = process.env.ELASTICSEARCH_INDEX || 'alerts';
-
-    console.log('Decision service configuration:');
-    console.log(`  Kafka brokers: ${kafkaBrokers.join(', ')}`);
-    console.log(`  Input topic: ${inputTopic}`);
-    console.log(`  Consumer group: ${groupId}`);
-    console.log(`  Elasticsearch: ${this.elasticsearchUrl}`);
-    console.log(`  Index: ${this.indexName}`);
-    console.log(`  Format: protobuf`);
-
-    this.kafka = new Kafka({
-      clientId: 'decision-service',
-      brokers: kafkaBrokers,
-      retry: {
-        retries: 5,
-        initialRetryTime: 300,
-      },
-    });
-  }
-
-  async loadProto() {
-    try {
-      // Load protobuf schema
-      const protoPath = path.join(__dirname, '../../../contracts/proto/event/v1/event.proto');
-      const root = await protobuf.load(protoPath);
-      this.eventProto = root.lookupType('dna.event.v1.Event');
-      console.log('Protobuf schema loaded successfully');
-    } catch (error) {
-      console.warn('Could not load protobuf schema, using fallback decoder:', error);
-      // In production, you'd use the generated types from sdks/ts-sdk
+// Process Kafka message
+async function processMessage(payload: EachMessagePayload) {
+  try {
+    // For now, parse JSON until protobuf is properly set up
+    const messageValue = payload.message.value;
+    if (!messageValue) {
+      logger.warn('Received empty message');
+      return;
     }
-  }
 
-  async start() {
-    await this.loadProto();
+    const event = JSON.parse(messageValue.toString());
 
-    const consumer = this.kafka.consumer({
-      groupId: process.env.KAFKA_GROUP_ID || 'decision-service',
-    });
-
-    await consumer.connect();
-    console.log('Connected to Kafka');
-
-    await consumer.subscribe({
-      topic: process.env.KAFKA_INPUT_TOPIC || 'processing.cleaned.v1',
-      fromBeginning: false,
-    });
-
-    console.log('Subscribed to topic, waiting for messages...');
-
-    await consumer.run({
-      eachMessage: async (payload: EachMessagePayload) => {
-        await this.processMessage(payload);
-      },
-    });
-
-    // Graceful shutdown
-    const shutdown = async () => {
-      console.log('Shutting down...');
-      await consumer.disconnect();
-      process.exit(0);
+    // Create evaluation context
+    const context: EvaluationContext = {
+      type: event.type || 'unknown',
+      payload: event.metric || event.log || event.text || event.imageRef || event.payload || {},
+      attributes: event.attributes || {},
+      ts: event.ts || new Date().toISOString()
     };
 
-    process.on('SIGINT', shutdown);
-    process.on('SIGTERM', shutdown);
-  }
-
-  private async processMessage(payload: EachMessagePayload) {
-    const { message } = payload;
-
-    try {
-      const value = message.value;
-      if (!value) {
-        console.warn('Received empty message');
-        return;
-      }
-
-      // Decode protobuf message
-      let event: Event;
-
-      if (this.eventProto) {
-        const decoded = this.eventProto.decode(value);
-        event = this.eventProto.toObject(decoded, { longs: Number }) as Event;
-      } else {
-        // Fallback: simple binary decode (not recommended for production)
-        event = this.decodeEventFallback(value);
-      }
-
-      console.log(`Processing event (protobuf): ${event.eventId}`);
-
-      // Decision logic: Check if event requires an alert
-      if (this.shouldCreateAlert(event)) {
-        const alert = this.createAlert(event);
-        await this.indexAlert(alert);
-        console.log(`Alert created: ${alert.event_id} - ${alert.message} [${alert.severity}]`);
-      } else {
-        console.log(`Event ${event.eventId} does not require an alert`);
-      }
-    } catch (error) {
-      console.error('Error processing message:', error);
+    // Evaluate policies
+    const results = await policyEngine.evaluate(context);
+    
+    // Log evaluation results
+    const matchedPolicies = results.filter(r => r.matched);
+    if (matchedPolicies.length > 0) {
+      logger.info({
+        event_id: event.eventId || event.event_id,
+        matched_policies: matchedPolicies.map(r => r.policyId),
+        actions_count: matchedPolicies.reduce((sum, r) => sum + (r.actions?.length || 0), 0)
+      }, 'Policies matched');
     }
+  } catch (error) {
+    logger.error(`Error processing message: ${error}`);
   }
+}
 
-  private decodeEventFallback(buffer: Buffer): Event {
-    // This is a simplified fallback - in production use proper protobuf generated code
-    // For now, we'll try to extract basic info
-    const str = buffer.toString('utf8');
-    return {
-      eventId: `decoded-${Date.now()}`,
-      source: 'unknown',
-      type: 1,
-      attributes: {},
-    };
-  }
+// Main function
+async function main() {
+  try {
+    // Start HTTP server
+    await fastify.listen({ port: HTTP_PORT, host: '0.0.0.0' });
+    logger.info(`HTTP server listening on port ${HTTP_PORT}`);
 
-  private shouldCreateAlert(event: Event): boolean {
-    // Decision rules: Create alert for warning or critical severity
-    const severity = event.attributes?.severity || 'info';
-    const isValid = event.attributes?.is_valid === 'true';
+    // Load initial policies
+    await loadPolicies();
 
-    if (!isValid) {
-      return false;
-    }
+    // Subscribe to policy updates
+    subscribeToPolicyUpdates();
 
-    return severity === 'warning' || severity === 'critical';
-  }
-
-  private createAlert(event: Event): Alert {
-    const metric = event.body?.metric;
-    const metricName = metric?.name || 'unknown';
-    const metricValue = metric?.value || 0;
-    const severity = event.attributes?.severity || 'info';
-
-    // Determine threshold based on metric
-    let threshold: number | undefined;
-    const nameLower = metricName.toLowerCase();
-    if (nameLower.includes('cpu')) {
-      threshold = severity === 'critical' ? 90 : 75;
-    } else if (nameLower.includes('memory')) {
-      threshold = severity === 'critical' ? 90 : 80;
-    } else if (nameLower.includes('disk')) {
-      threshold = severity === 'critical' ? 85 : 70;
-    }
-
-    // Create alert message
-    const message = `${severity.toUpperCase()}: ${metricName} on ${event.source} is ${metricValue}${
-      threshold ? ` (threshold: ${threshold})` : ''
-    }`;
-
-    // Convert timestamp
-    let timestamp = new Date().toISOString();
-    if (event.ts) {
-      timestamp = new Date(event.ts.seconds * 1000).toISOString();
-    }
-
-    return {
-      '@timestamp': timestamp,
-      event_id: event.eventId,
-      event_type: 'metric',
-      source: event.source,
-      severity,
-      metric_name: metricName,
-      metric_value: metricValue,
-      threshold,
-      message,
-      raw_data: event,
-    };
-  }
-
-  private async indexAlert(alert: Alert): Promise<void> {
-    try {
-      const response = await axios.post(`${this.elasticsearchUrl}/${this.indexName}/_doc`, alert, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        timeout: 5000,
+    // Initialize Kafka (optional for testing)
+    if (KAFKA_BROKERS[0] !== 'localhost:9092') {
+      const kafka = new Kafka({
+        clientId: KAFKA_CLIENT_ID,
+        brokers: KAFKA_BROKERS
       });
 
-      if (response.status >= 200 && response.status < 300) {
-        console.log(`Alert indexed successfully: ${response.data._id}`);
-      } else {
-        console.error(`Failed to index alert: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error(`Elasticsearch error: ${error.message}`);
-        if (error.response) {
-          console.error(`Response: ${JSON.stringify(error.response.data)}`);
-        }
-      } else {
-        console.error('Error indexing alert:', error);
-      }
-      throw error;
+      const consumer = kafka.consumer({ groupId: KAFKA_GROUP_ID });
+
+      await consumer.connect();
+      logger.info('Connected to Kafka');
+
+      await consumer.subscribe({ topic: INPUT_TOPIC, fromBeginning: false });
+      logger.info(`Subscribed to topic: ${INPUT_TOPIC}`);
+
+      await consumer.run({
+        eachMessage: processMessage
+      });
+
+      logger.info('Decision service started successfully with Kafka');
+    } else {
+      logger.info('Decision service started successfully (Kafka disabled for testing)');
     }
+  } catch (error) {
+    logger.error(`Failed to start decision service: ${error}`);
+    process.exit(1);
   }
 }
 
-// Start the service
-const service = new DecisionService();
-service.start().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  await fastify.close();
+  configClient.close();
+  process.exit(0);
 });
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  await fastify.close();
+  configClient.close();
+  process.exit(0);
+});
+
+// Start the service
+main();

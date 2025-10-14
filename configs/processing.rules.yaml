@@ -1,1 +1,31 @@
-# Processing rules configuration
+# Processing Rules Configuration
+normalization:
+  timestamp: "rfc3339"
+  drop_fields:
+    - "debug"
+    - "temp"
+    - "internal"
+
+enrichment:
+  lookup_tables:
+    severity_mapping:
+      "ERROR": "critical"
+      "WARN": "warning"
+      "INFO": "info"
+      "DEBUG": "debug"
+    
+    source_mapping:
+      "sensor-temp": "temperature_sensor"
+      "sensor-humidity": "humidity_sensor"
+      "api-user": "user_api"
+      "webhook-github": "github_webhook"
+  
+  add_attributes:
+    processed_by: "processing-service"
+    processing_version: "1.0"
+    environment: "production"
+
+metadata:
+  version: "1.0.0"
+  updated_at: "2025-10-14T00:00:00Z"
+  updated_by: "platform-admin"
