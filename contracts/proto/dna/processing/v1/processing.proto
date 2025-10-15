@@ -1,0 +1,142 @@
+syntax = "proto3";
+package dna.processing.v1;
+
+import "google/protobuf/timestamp.proto";
+import "dna/event/v1/event.proto";
+
+option go_package = "github.com/dnasol/dna-platform/sdks/go-sdk/gen/processing/v1;processingv1";
+
+// ProcessedEvent: İşlenmiş event
+message ProcessedEvent {
+  // Orijinal event
+  dna.event.v1.Event original_event = 1;
+  
+  // Temizlenmiş/normalize edilmiş event
+  dna.event.v1.Event processed_event = 2;
+  
+  // İşleme metadata
+  ProcessingMetadata metadata = 3;
+  
+  // Kalite skoru (0-100)
+  double quality_score = 4;
+  
+  // İşlem zamanı
+  google.protobuf.Timestamp processed_at = 5;
+}
+
+// ProcessingMetadata: İşleme bilgileri
+message ProcessingMetadata {
+  // Uygulanan kurallar
+  repeated string applied_rules = 1;
+  
+  // Yapılan dönüşümler
+  repeated Transformation transformations = 2;
+  
+  // Doğrulama sonuçları
+  ValidationResult validation = 3;
+  
+  // İşleme süresi (ms)
+  int64 processing_time_ms = 4;
+}
+
+// Transformation: Veri dönüşümü
+message Transformation {
+  string type = 1;        // normalize, filter, enrich, etc.
+  string field = 2;       // dönüştürülen alan
+  string before = 3;      // önceki değer
+  string after = 4;       // sonraki değer
+  string reason = 5;      // dönüşüm nedeni
+}
+
+// ValidationResult: Doğrulama sonucu
+message ValidationResult {
+  bool is_valid = 1;
+  repeated ValidationError errors = 2;
+  repeated string warnings = 3;
+}
+
+// ValidationError: Doğrulama hatası
+message ValidationError {
+  string field = 1;
+  string error = 2;
+  string severity = 3;  // error, warning
+}
+
+// ProcessingRule: İşleme kuralı
+message ProcessingRule {
+  string rule_id = 1;
+  string name = 2;
+  string description = 3;
+  RuleType type = 4;
+  string condition = 5;    // expression (e.g., "type == 'METRIC'")
+  repeated Action actions = 6;
+  bool enabled = 7;
+  int32 priority = 8;      // düşük numara = yüksek öncelik
+}
+
+// RuleType: Kural tipi
+enum RuleType {
+  RULE_TYPE_UNSPECIFIED = 0;
+  RULE_TYPE_VALIDATION = 1;
+  RULE_TYPE_TRANSFORMATION = 2;
+  RULE_TYPE_ENRICHMENT = 3;
+  RULE_TYPE_FILTER = 4;
+}
+
+// Action: Kural aksiyonu
+message Action {
+  string type = 1;         // set_field, remove_field, transform, etc.
+  map<string, string> params = 2;
+}
+
+// ProcessingStats: İşleme istatistikleri
+message ProcessingStats {
+  int64 total_events = 1;
+  int64 valid_events = 2;
+  int64 invalid_events = 3;
+  int64 filtered_events = 4;
+  double avg_quality_score = 5;
+  google.protobuf.Timestamp period_start = 6;
+  google.protobuf.Timestamp period_end = 7;
+}
+
+// ProcessingService: gRPC servisi
+service ProcessingService {
+  // Tekil event işleme
+  rpc ProcessEvent(dna.event.v1.Event) returns (ProcessedEvent);
+  
+  // Toplu event işleme
+  rpc BatchProcess(BatchProcessRequest) returns (BatchProcessResponse);
+  
+  // İstatistikleri al
+  rpc GetStats(StatsRequest) returns (ProcessingStats);
+}
+
+// BatchProcessRequest: Toplu işleme isteği
+message BatchProcessRequest {
+  repeated dna.event.v1.Event events = 1;
+  ProcessingOptions options = 2;
+}
+
+// ProcessingOptions: İşleme seçenekleri
+message ProcessingOptions {
+  bool skip_validation = 1;
+  bool apply_enrichment = 2;
+  repeated string rule_ids = 3;  // sadece belirli kuralları uygula
+}
+
+// BatchProcessResponse: Toplu işleme yanıtı
+message BatchProcessResponse {
+  repeated ProcessedEvent results = 1;
+  int32 total = 2;
+  int32 successful = 3;
+  int32 failed = 4;
+}
+
+// StatsRequest: İstatistik isteği
+message StatsRequest {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  string tenant_id = 3;
+}
+

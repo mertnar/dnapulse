@@ -1,0 +1,188 @@
+syntax = "proto3";
+package dna.correlation.v1;
+
+import "google/protobuf/timestamp.proto";
+import "dna/event/v1/event.proto";
+
+option go_package = "github.com/dnasol/dna-platform/sdks/go-sdk/gen/correlation/v1;correlationv1";
+
+// CorrelatedEvents: Korelasyon sonucu
+message CorrelatedEvents {
+  // Korelasyon ID
+  string correlation_id = 1;
+  
+  // İlişkili eventler
+  repeated dna.event.v1.Event events = 2;
+  
+  // Korelasyon tipi
+  CorrelationType type = 3;
+  
+  // Korelasyon skoru (0-1)
+  double correlation_score = 4;
+  
+  // Korelasyon zamanı
+  google.protobuf.Timestamp correlated_at = 5;
+  
+  // Korelasyon metadata
+  CorrelationMetadata metadata = 6;
+}
+
+// CorrelationType: Korelasyon tipi
+enum CorrelationType {
+  CORRELATION_TYPE_UNSPECIFIED = 0;
+  CORRELATION_TYPE_TEMPORAL = 1;      // zaman bazlı
+  CORRELATION_TYPE_CAUSAL = 2;        // nedensel
+  CORRELATION_TYPE_PATTERN = 3;       // desen bazlı
+  CORRELATION_TYPE_ENTITY = 4;        // entity bazlı (aynı user, device, etc.)
+  CORRELATION_TYPE_CUSTOM = 5;        // özel kural
+}
+
+// CorrelationMetadata: Korelasyon bilgileri
+message CorrelationMetadata {
+  // Uygulanan kurallar
+  repeated string applied_rules = 1;
+  
+  // Korelasyon anahtarı
+  map<string, string> correlation_keys = 2;
+  
+  // Zaman penceresi (ms)
+  int64 time_window_ms = 3;
+  
+  // İşleme süresi (ms)
+  int64 processing_time_ms = 4;
+  
+  // İlişkili pattern ID
+  string pattern_id = 5;
+}
+
+// CorrelationRule: Korelasyon kuralı
+message CorrelationRule {
+  string rule_id = 1;
+  string name = 2;
+  string description = 3;
+  CorrelationType type = 4;
+  
+  // Korelasyon anahtarları (örn: user_id, device_id)
+  repeated string correlation_keys = 5;
+  
+  // Zaman penceresi (dakika)
+  int32 time_window_minutes = 6;
+  
+  // Minimum event sayısı
+  int32 min_events = 7;
+  
+  // Maksimum event sayısı
+  int32 max_events = 8;
+  
+  // Korelasyon koşulu (expression)
+  string condition = 9;
+  
+  // Öncelik
+  int32 priority = 10;
+  
+  // Aktif mi?
+  bool enabled = 11;
+}
+
+// CorrelationPattern: Korelasyon deseni
+message CorrelationPattern {
+  string pattern_id = 1;
+  string name = 2;
+  string description = 3;
+  
+  // Pattern tanımı (event sequence)
+  repeated PatternStep steps = 4;
+  
+  // Pattern özellikleri
+  PatternProperties properties = 5;
+}
+
+// PatternStep: Pattern adımı
+message PatternStep {
+  int32 sequence = 1;
+  string event_type = 2;
+  string condition = 3;
+  int64 max_time_diff_ms = 4;  // bir önceki adımla maksimum zaman farkı
+}
+
+// PatternProperties: Pattern özellikleri
+message PatternProperties {
+  int32 min_occurrences = 1;
+  int32 max_time_span_minutes = 2;
+  bool allow_gaps = 3;           // adımlar arasında başka eventler olabilir mi?
+  bool require_order = 4;        // sıra önemli mi?
+}
+
+// CorrelationStats: Korelasyon istatistikleri
+message CorrelationStats {
+  int64 total_correlations = 1;
+  int64 by_type_count = 2;
+  map<string, int64> pattern_matches = 3;
+  double avg_correlation_score = 4;
+  google.protobuf.Timestamp period_start = 5;
+  google.protobuf.Timestamp period_end = 6;
+}
+
+// CorrelationService: gRPC servisi
+service CorrelationService {
+  // Event korelasyon ara
+  rpc FindCorrelations(FindCorrelationsRequest) returns (FindCorrelationsResponse);
+  
+  // Korelasyon detaylarını al
+  rpc GetCorrelation(GetCorrelationRequest) returns (CorrelatedEvents);
+  
+  // Aktif korelasyonları listele
+  rpc ListActiveCorrelations(ListCorrelationsRequest) returns (ListCorrelationsResponse);
+  
+  // İstatistikleri al
+  rpc GetStats(StatsRequest) returns (CorrelationStats);
+}
+
+// FindCorrelationsRequest: Korelasyon arama isteği
+message FindCorrelationsRequest {
+  dna.event.v1.Event event = 1;
+  FindCorrelationsOptions options = 2;
+}
+
+// FindCorrelationsOptions: Arama seçenekleri
+message FindCorrelationsOptions {
+  int32 time_window_minutes = 1;
+  double min_score = 2;
+  repeated CorrelationType types = 3;
+  int32 max_results = 4;
+}
+
+// FindCorrelationsResponse: Korelasyon arama yanıtı
+message FindCorrelationsResponse {
+  repeated CorrelatedEvents correlations = 1;
+  int32 total_found = 2;
+}
+
+// GetCorrelationRequest: Korelasyon detay isteği
+message GetCorrelationRequest {
+  string correlation_id = 1;
+}
+
+// ListCorrelationsRequest: Korelasyon liste isteği
+message ListCorrelationsRequest {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  CorrelationType type = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+// ListCorrelationsResponse: Korelasyon liste yanıtı
+message ListCorrelationsResponse {
+  repeated CorrelatedEvents correlations = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// StatsRequest: İstatistik isteği
+message StatsRequest {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  string tenant_id = 3;
+}
+

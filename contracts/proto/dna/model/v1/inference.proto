@@ -2,16 +2,218 @@ syntax = "proto3";
 package dna.model.v1;
 
 import "google/protobuf/timestamp.proto";
+import "dna/event/v1/event.proto";
 
+option go_package = "github.com/dnasol/dna-platform/sdks/go-sdk/gen/model/v1;modelv1";
+
+// InferenceRequest: Tahmin isteği
 message InferenceRequest {
-  string model = 1;   // "anomaly-zscore:v1"
-  bytes features = 2; // serialized feature vector (e.g., JSON or Arrow)
-  map<string,string> ctx = 3; // tenant_id, user_id...
+  string request_id = 1;
+  string model = 2;            // "anomaly-zscore:v1"
+  bytes features = 3;          // serialized feature vector (e.g., JSON or Arrow)
+  map<string, string> ctx = 4; // tenant_id, user_id...
+  
+  // Event bazlı tahmin için
+  dna.event.v1.Event event = 5;
 }
 
+// InferenceResponse: Tahmin yanıtı
 message InferenceResponse {
-  string model = 1;
+  string request_id = 1;
+  string model = 2;
+  double score = 3;
+  string label = 4;             // "normal" | "anomaly" | ...
+  google.protobuf.Timestamp ts = 5;
+  
+  // Tahmin detayları
+  InferenceDetails details = 6;
+  
+  // İşleme süresi (ms)
+  int64 processing_time_ms = 7;
+}
+
+// InferenceDetails: Tahmin detayları
+message InferenceDetails {
+  // Model confidence (0-1)
+  double confidence = 1;
+  
+  // Feature importance (feature adı -> importance skoru)
+  map<string, double> feature_importance = 2;
+  
+  // Alternatif tahminler
+  repeated Prediction alternatives = 3;
+  
+  // Model versiyonu
+  string model_version = 4;
+  
+  // Açıklama (SHAP values, etc.)
+  bytes explanation = 5;
+}
+
+// Prediction: Tahmin
+message Prediction {
+  string label = 1;
   double score = 2;
-  string label = 3;      // "normal" | "anomaly" | ...
-  google.protobuf.Timestamp ts = 4;
+  double probability = 3;
+}
+
+// ModelInfo: Model bilgisi
+message ModelInfo {
+  string model_id = 1;
+  string name = 2;
+  string description = 3;
+  ModelType type = 4;
+  string version = 5;
+  ModelMetadata metadata = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// ModelType: Model tipi
+enum ModelType {
+  MODEL_TYPE_UNSPECIFIED = 0;
+  MODEL_TYPE_CLASSIFICATION = 1;
+  MODEL_TYPE_REGRESSION = 2;
+  MODEL_TYPE_CLUSTERING = 3;
+  MODEL_TYPE_ANOMALY_DETECTION = 4;
+  MODEL_TYPE_FORECASTING = 5;
+}
+
+// ModelMetadata: Model metadata
+message ModelMetadata {
+  // Model framework (sklearn, pytorch, tensorflow, etc.)
+  string framework = 1;
+  
+  // Eğitim dataset'i
+  string training_dataset = 2;
+  
+  // Metrikler
+  map<string, double> metrics = 3;
+  
+  // Girdi şeması
+  string input_schema = 4;
+  
+  // Çıktı şeması
+  string output_schema = 5;
+  
+  // Etiketler
+  map<string, string> labels = 6;
+}
+
+// TrainingRequest: Model eğitim isteği
+message TrainingRequest {
+  string model_id = 1;
+  string dataset_path = 2;
+  TrainingConfig config = 3;
+}
+
+// TrainingConfig: Eğitim konfigürasyonu
+message TrainingConfig {
+  map<string, string> hyperparameters = 1;
+  int32 epochs = 2;
+  int32 batch_size = 3;
+  double learning_rate = 4;
+  string validation_split = 5;
+}
+
+// TrainingResponse: Eğitim yanıtı
+message TrainingResponse {
+  string training_id = 1;
+  TrainingStatus status = 2;
+  string model_version = 3;
+  map<string, double> metrics = 4;
+  google.protobuf.Timestamp completed_at = 5;
+}
+
+// TrainingStatus: Eğitim durumu
+enum TrainingStatus {
+  TRAINING_STATUS_UNSPECIFIED = 0;
+  TRAINING_STATUS_PENDING = 1;
+  TRAINING_STATUS_RUNNING = 2;
+  TRAINING_STATUS_COMPLETED = 3;
+  TRAINING_STATUS_FAILED = 4;
+}
+
+// ModelService: gRPC servisi
+service ModelService {
+  // Tahmin yap
+  rpc Predict(InferenceRequest) returns (InferenceResponse);
+  
+  // Toplu tahmin
+  rpc BatchPredict(BatchPredictRequest) returns (BatchPredictResponse);
+  
+  // Model bilgisi al
+  rpc GetModelInfo(GetModelInfoRequest) returns (ModelInfo);
+  
+  // Model listele
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+  
+  // Model eğit
+  rpc TrainModel(TrainingRequest) returns (TrainingResponse);
+  
+  // Model deploy et
+  rpc DeployModel(DeployModelRequest) returns (DeployModelResponse);
+}
+
+// BatchPredictRequest: Toplu tahmin isteği
+message BatchPredictRequest {
+  string model = 1;
+  repeated InferenceRequest requests = 2;
+}
+
+// BatchPredictResponse: Toplu tahmin yanıtı
+message BatchPredictResponse {
+  repeated InferenceResponse responses = 1;
+  int32 total = 2;
+  int32 successful = 3;
+  int32 failed = 4;
+}
+
+// GetModelInfoRequest: Model bilgi isteği
+message GetModelInfoRequest {
+  string model_id = 1;
+  string version = 2;  // boş ise en son versiyon
+}
+
+// ListModelsRequest: Model listesi isteği
+message ListModelsRequest {
+  ModelType type = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+// ListModelsResponse: Model listesi yanıtı
+message ListModelsResponse {
+  repeated ModelInfo models = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// DeployModelRequest: Model deploy isteği
+message DeployModelRequest {
+  string model_id = 1;
+  string version = 2;
+  DeploymentConfig config = 3;
+}
+
+// DeploymentConfig: Deployment konfigürasyonu
+message DeploymentConfig {
+  string environment = 1;  // dev, staging, prod
+  int32 replicas = 2;
+  map<string, string> resources = 3;
+}
+
+// DeployModelResponse: Model deploy yanıtı
+message DeployModelResponse {
+  string deployment_id = 1;
+  string endpoint = 2;
+  DeploymentStatus status = 3;
+}
+
+// DeploymentStatus: Deployment durumu
+enum DeploymentStatus {
+  DEPLOYMENT_STATUS_UNSPECIFIED = 0;
+  DEPLOYMENT_STATUS_DEPLOYING = 1;
+  DEPLOYMENT_STATUS_DEPLOYED = 2;
+  DEPLOYMENT_STATUS_FAILED = 3;
 }

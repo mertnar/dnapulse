@@ -1,0 +1,78 @@
+syntax = "proto3";
+package dna.ingestion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "dna/event/v1/event.proto";
+
+option go_package = "github.com/dnasol/dna-platform/sdks/go-sdk/gen/ingestion/v1;ingestionv1";
+
+// IngestRequest: Ham veri alma isteği
+message IngestRequest {
+  // Unique request ID (idempotency için)
+  string request_id = 1;
+  
+  // Tenant bilgisi (multi-tenancy)
+  string tenant_id = 2;
+  
+  // Ham event verisi
+  dna.event.v1.Event event = 3;
+  
+  // Metadata
+  map<string, string> metadata = 4;
+  
+  // İstek zamanı
+  google.protobuf.Timestamp received_at = 5;
+}
+
+// IngestResponse: Veri alma yanıtı
+message IngestResponse {
+  // İşlem durumu
+  IngestStatus status = 1;
+  
+  // Event ID (başarılı ise)
+  string event_id = 2;
+  
+  // Hata mesajı (başarısız ise)
+  string error_message = 3;
+  
+  // İşlem süresi (ms)
+  int64 processing_time_ms = 4;
+}
+
+// IngestStatus: İşlem durumu
+enum IngestStatus {
+  INGEST_STATUS_UNSPECIFIED = 0;
+  INGEST_STATUS_ACCEPTED = 1;
+  INGEST_STATUS_REJECTED = 2;
+  INGEST_STATUS_RATE_LIMITED = 3;
+  INGEST_STATUS_INVALID = 4;
+}
+
+// BatchIngestRequest: Toplu veri alma
+message BatchIngestRequest {
+  string request_id = 1;
+  string tenant_id = 2;
+  repeated dna.event.v1.Event events = 3;
+  map<string, string> metadata = 4;
+}
+
+// BatchIngestResponse: Toplu veri alma yanıtı
+message BatchIngestResponse {
+  int32 total = 1;
+  int32 accepted = 2;
+  int32 rejected = 3;
+  repeated IngestResponse results = 4;
+}
+
+// IngestionService: gRPC servisi
+service IngestionService {
+  // Tekil event ingest
+  rpc Ingest(IngestRequest) returns (IngestResponse);
+  
+  // Toplu event ingest
+  rpc BatchIngest(BatchIngestRequest) returns (BatchIngestResponse);
+  
+  // Stream ingest (client streaming)
+  rpc StreamIngest(stream IngestRequest) returns (BatchIngestResponse);
+}
+

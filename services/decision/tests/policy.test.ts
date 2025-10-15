@@ -27,12 +27,12 @@ describe('Decision Service Policy Tests', () => {
                 type: 'index-es',
                 config: {
                   index: 'alerts',
-                  doc_type: 'alert'
-                }
-              }
-            ]
-          }
-        ]
+                  doc_type: 'alert',
+                },
+              },
+            ],
+          },
+        ],
       };
 
       policyEngine.loadPolicies(config);
@@ -47,7 +47,7 @@ describe('Decision Service Policy Tests', () => {
 
     test('should handle empty policy config', () => {
       const config: PolicyConfig = {
-        alerts: []
+        alerts: [],
       };
 
       policyEngine.loadPolicies(config);
@@ -62,14 +62,14 @@ describe('Decision Service Policy Tests', () => {
           {
             id: 'policy-1',
             when: 'type == "error"',
-            actions: [{ type: 'index-es', config: {} }]
+            actions: [{ type: 'index-es', config: {} }],
           },
           {
             id: 'policy-2',
             when: 'attributes.severity == "critical"',
-            actions: [{ type: 'webhook', config: { url: 'http://example.com' } }]
-          }
-        ]
+            actions: [{ type: 'webhook', config: { url: 'http://example.com' } }],
+          },
+        ],
       };
 
       policyEngine.loadPolicies(config);
@@ -93,12 +93,12 @@ describe('Decision Service Policy Tests', () => {
                 type: 'index-es',
                 config: {
                   index: 'alerts',
-                  doc_type: 'alert'
-                }
-              }
-            ]
-          }
-        ]
+                  doc_type: 'alert',
+                },
+              },
+            ],
+          },
+        ],
       };
 
       policyEngine.loadPolicies(config);
@@ -107,12 +107,12 @@ describe('Decision Service Policy Tests', () => {
         type: 'error',
         payload: { message: 'Test error' },
         attributes: {},
-        ts: new Date().toISOString()
+        ts: new Date().toISOString(),
       };
 
       // Mock the plugin registry
       const mockPlugin = {
-        execute: jest.fn().mockResolvedValue({ success: true })
+        execute: jest.fn().mockResolvedValue({ success: true }),
       };
       jest.spyOn(pluginRegistry, 'getPlugin').mockReturnValue(mockPlugin);
 
@@ -121,13 +121,16 @@ describe('Decision Service Policy Tests', () => {
       expect(results).toHaveLength(1);
       expect(results[0].matched).toBe(true);
       expect(results[0].actions).toHaveLength(1);
-      expect(mockPlugin.execute).toHaveBeenCalledWith({
-        type: 'index-es',
-        config: {
-          index: 'alerts',
-          doc_type: 'alert'
-        }
-      }, context);
+      expect(mockPlugin.execute).toHaveBeenCalledWith(
+        {
+          type: 'index-es',
+          config: {
+            index: 'alerts',
+            doc_type: 'alert',
+          },
+        },
+        context
+      );
     });
 
     test('should dispatch webhook action', async () => {
@@ -141,12 +144,12 @@ describe('Decision Service Policy Tests', () => {
                 type: 'webhook',
                 config: {
                   url: 'http://example.com/webhook',
-                  method: 'POST'
-                }
-              }
-            ]
-          }
-        ]
+                  method: 'POST',
+                },
+              },
+            ],
+          },
+        ],
       };
 
       policyEngine.loadPolicies(config);
@@ -155,12 +158,12 @@ describe('Decision Service Policy Tests', () => {
         type: 'alert',
         payload: { message: 'Critical alert' },
         attributes: { severity: 'critical' },
-        ts: new Date().toISOString()
+        ts: new Date().toISOString(),
       };
 
       // Mock the plugin registry
       const mockPlugin = {
-        execute: jest.fn().mockResolvedValue({ success: true })
+        execute: jest.fn().mockResolvedValue({ success: true }),
       };
       jest.spyOn(pluginRegistry, 'getPlugin').mockReturnValue(mockPlugin);
 
@@ -169,13 +172,16 @@ describe('Decision Service Policy Tests', () => {
       expect(results).toHaveLength(1);
       expect(results[0].matched).toBe(true);
       expect(results[0].actions).toHaveLength(1);
-      expect(mockPlugin.execute).toHaveBeenCalledWith({
-        type: 'webhook',
-        config: {
-          url: 'http://example.com/webhook',
-          method: 'POST'
-        }
-      }, context);
+      expect(mockPlugin.execute).toHaveBeenCalledWith(
+        {
+          type: 'webhook',
+          config: {
+            url: 'http://example.com/webhook',
+            method: 'POST',
+          },
+        },
+        context
+      );
     });
 
     test('should handle multiple actions', async () => {
@@ -187,15 +193,15 @@ describe('Decision Service Policy Tests', () => {
             actions: [
               {
                 type: 'index-es',
-                config: { index: 'alerts' }
+                config: { index: 'alerts' },
               },
               {
                 type: 'webhook',
-                config: { url: 'http://example.com' }
-              }
-            ]
-          }
-        ]
+                config: { url: 'http://example.com' },
+              },
+            ],
+          },
+        ],
       };
 
       policyEngine.loadPolicies(config);
@@ -204,12 +210,12 @@ describe('Decision Service Policy Tests', () => {
         type: 'error',
         payload: { message: 'Test error' },
         attributes: {},
-        ts: new Date().toISOString()
+        ts: new Date().toISOString(),
       };
 
       // Mock the plugin registry
       const mockPlugin = {
-        execute: jest.fn().mockResolvedValue({ success: true })
+        execute: jest.fn().mockResolvedValue({ success: true }),
       };
       jest.spyOn(pluginRegistry, 'getPlugin').mockReturnValue(mockPlugin);
 
@@ -229,9 +235,9 @@ describe('Decision Service Policy Tests', () => {
           {
             id: 'condition-test',
             when: 'type == "error"',
-            actions: [{ type: 'index-es', config: {} }]
-          }
-        ]
+            actions: [{ type: 'index-es', config: {} }],
+          },
+        ],
       };
 
       policyEngine.loadPolicies(config);
@@ -241,7 +247,7 @@ describe('Decision Service Policy Tests', () => {
         type: 'error',
         payload: {},
         attributes: {},
-        ts: new Date().toISOString()
+        ts: new Date().toISOString(),
       };
 
       const results = await policyEngine.evaluate(matchingContext);
@@ -253,7 +259,7 @@ describe('Decision Service Policy Tests', () => {
         type: 'info',
         payload: {},
         attributes: {},
-        ts: new Date().toISOString()
+        ts: new Date().toISOString(),
       };
 
       const nonMatchingResults = await policyEngine.evaluate(nonMatchingContext);
@@ -267,9 +273,9 @@ describe('Decision Service Policy Tests', () => {
           {
             id: 'complex-condition-test',
             when: 'type == "error" && attributes.severity == "critical"',
-            actions: [{ type: 'index-es', config: {} }]
-          }
-        ]
+            actions: [{ type: 'index-es', config: {} }],
+          },
+        ],
       };
 
       policyEngine.loadPolicies(config);
@@ -278,7 +284,7 @@ describe('Decision Service Policy Tests', () => {
         type: 'error',
         payload: {},
         attributes: { severity: 'critical' },
-        ts: new Date().toISOString()
+        ts: new Date().toISOString(),
       };
 
       const results = await policyEngine.evaluate(context);

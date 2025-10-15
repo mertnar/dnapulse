@@ -1,0 +1,144 @@
+syntax = "proto3";
+package dna.categorization.v1;
+
+import "google/protobuf/timestamp.proto";
+import "dna/event/v1/event.proto";
+
+option go_package = "github.com/dnasol/dna-platform/sdks/go-sdk/gen/categorization/v1;categorizationv1";
+
+// CategorizedEvent: Kategorize edilmiş event
+message CategorizedEvent {
+  // Orijinal event
+  dna.event.v1.Event event = 1;
+  
+  // Kategori bilgisi
+  Category category = 2;
+  
+  // Etiketler
+  repeated Label labels = 3;
+  
+  // Kategorize etme güven skoru (0-1)
+  double confidence_score = 4;
+  
+  // Kategorize etme zamanı
+  google.protobuf.Timestamp categorized_at = 5;
+  
+  // Kategorize etme metadata
+  CategorizationMetadata metadata = 6;
+}
+
+// Category: Kategori
+message Category {
+  string category_id = 1;
+  string name = 2;
+  string description = 3;
+  CategoryLevel level = 4;
+  string parent_id = 5;  // hiyerarşik kategoriler için
+}
+
+// CategoryLevel: Kategori seviyesi
+enum CategoryLevel {
+  CATEGORY_LEVEL_UNSPECIFIED = 0;
+  CATEGORY_LEVEL_PRIMARY = 1;
+  CATEGORY_LEVEL_SECONDARY = 2;
+  CATEGORY_LEVEL_TERTIARY = 3;
+}
+
+// Label: Etiket
+message Label {
+  string key = 1;
+  string value = 2;
+  double confidence = 3;  // 0-1
+  string source = 4;      // rule, ml, manual
+}
+
+// CategorizationMetadata: Kategorize etme bilgileri
+message CategorizationMetadata {
+  // Uygulanan kurallar
+  repeated string applied_rules = 1;
+  
+  // Kullanılan model (ML kategorize etme için)
+  string model_name = 2;
+  
+  // İşleme süresi (ms)
+  int64 processing_time_ms = 3;
+  
+  // Alternatif kategoriler
+  repeated CategorySuggestion alternatives = 4;
+}
+
+// CategorySuggestion: Kategori önerisi
+message CategorySuggestion {
+  Category category = 1;
+  double confidence = 2;
+  string reason = 3;
+}
+
+// CategorizationRule: Kategorize etme kuralı
+message CategorizationRule {
+  string rule_id = 1;
+  string name = 2;
+  string description = 3;
+  string condition = 4;        // expression
+  string category_id = 5;
+  repeated Label labels = 6;   // eklenecek etiketler
+  int32 priority = 7;
+  bool enabled = 8;
+}
+
+// CategorizationService: gRPC servisi
+service CategorizationService {
+  // Tekil event kategorize etme
+  rpc Categorize(dna.event.v1.Event) returns (CategorizedEvent);
+  
+  // Toplu kategorize etme
+  rpc BatchCategorize(BatchCategorizeRequest) returns (BatchCategorizeResponse);
+  
+  // Kategori önerileri al
+  rpc GetSuggestions(dna.event.v1.Event) returns (CategorySuggestionsResponse);
+  
+  // Kategori listesini al
+  rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
+}
+
+// BatchCategorizeRequest: Toplu kategorize etme isteği
+message BatchCategorizeRequest {
+  repeated dna.event.v1.Event events = 1;
+  CategorizationOptions options = 2;
+}
+
+// CategorizationOptions: Kategorize etme seçenekleri
+message CategorizationOptions {
+  bool use_ml = 1;              // ML modelini kullan
+  double min_confidence = 2;    // minimum güven skoru
+  int32 max_suggestions = 3;    // maksimum öneri sayısı
+}
+
+// BatchCategorizeResponse: Toplu kategorize etme yanıtı
+message BatchCategorizeResponse {
+  repeated CategorizedEvent results = 1;
+  int32 total = 2;
+  int32 successful = 3;
+  int32 failed = 4;
+}
+
+// CategorySuggestionsResponse: Kategori önerileri yanıtı
+message CategorySuggestionsResponse {
+  repeated CategorySuggestion suggestions = 1;
+}
+
+// ListCategoriesRequest: Kategori listesi isteği
+message ListCategoriesRequest {
+  string parent_id = 1;  // belirli bir parent'ın alt kategorileri
+  CategoryLevel level = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+// ListCategoriesResponse: Kategori listesi yanıtı
+message ListCategoriesResponse {
+  repeated Category categories = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+

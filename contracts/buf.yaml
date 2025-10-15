@@ -1,8 +1,11 @@
 version: v2
 modules:
-  - path: proto/dna
+  - path: proto
 lint:
   use:
     - DEFAULT
+  except:
+    - PACKAGE_VERSION_SUFFIX
 breaking:
-  # breaking check'i CLI'da çalıştıracağız (aşağıda)
+  use:
+    - FILE

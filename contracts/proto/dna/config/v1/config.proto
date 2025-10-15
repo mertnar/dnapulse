@@ -1,0 +1,255 @@
+syntax = "proto3";
+package dna.config.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+option go_package = "github.com/dnasol/dna-platform/sdks/go-sdk/gen/config/v1;configv1";
+
+// ConfigEntry: Konfigürasyon girişi
+message ConfigEntry {
+  // Config ID (benzersiz)
+  string config_id = 1;
+  
+  // Config scope (service adı: processing, decision, etc.)
+  string scope = 2;
+  
+  // Config versiyonu
+  string version = 3;
+  
+  // Config formatı
+  ConfigFormat format = 4;
+  
+  // Config verisi (YAML, JSON, etc.)
+  bytes data = 5;
+  
+  // Metadata
+  ConfigMetadata metadata = 6;
+  
+  // Oluşturulma zamanı
+  google.protobuf.Timestamp created_at = 7;
+  
+  // Güncellenme zamanı
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// ConfigFormat: Config formatı
+enum ConfigFormat {
+  CONFIG_FORMAT_UNSPECIFIED = 0;
+  CONFIG_FORMAT_YAML = 1;
+  CONFIG_FORMAT_JSON = 2;
+  CONFIG_FORMAT_TOML = 3;
+  CONFIG_FORMAT_PROTOBUF = 4;
+}
+
+// ConfigMetadata: Config metadata
+message ConfigMetadata {
+  // Oluşturan
+  string created_by = 1;
+  
+  // Son güncelleyen
+  string updated_by = 2;
+  
+  // Değişiklik açıklaması
+  string change_description = 3;
+  
+  // Etiketler
+  map<string, string> labels = 4;
+  
+  // Ortam (dev, staging, prod)
+  string environment = 5;
+  
+  // Tenant ID (multi-tenancy)
+  string tenant_id = 6;
+}
+
+// ConfigHistory: Config geçmişi
+message ConfigHistory {
+  string config_id = 1;
+  string scope = 2;
+  int32 version_number = 3;
+  bytes data = 4;
+  ConfigMetadata metadata = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+// ConfigDiff: Config farkları
+message ConfigDiff {
+  string field_path = 1;     // değişen alanın yolu (örn: "rules[0].condition")
+  string old_value = 2;
+  string new_value = 3;
+  DiffType type = 4;
+}
+
+// DiffType: Fark tipi
+enum DiffType {
+  DIFF_TYPE_UNSPECIFIED = 0;
+  DIFF_TYPE_ADDED = 1;
+  DIFF_TYPE_MODIFIED = 2;
+  DIFF_TYPE_REMOVED = 3;
+}
+
+// ConfigValidationResult: Config doğrulama sonucu
+message ConfigValidationResult {
+  bool is_valid = 1;
+  repeated ValidationError errors = 2;
+  repeated ValidationWarning warnings = 3;
+}
+
+// ValidationError: Doğrulama hatası
+message ValidationError {
+  string field = 1;
+  string message = 2;
+  string severity = 3;
+}
+
+// ValidationWarning: Doğrulama uyarısı
+message ValidationWarning {
+  string field = 1;
+  string message = 2;
+}
+
+// ConfigSubscription: Config aboneliği (SSE için)
+message ConfigSubscription {
+  string subscription_id = 1;
+  repeated string scopes = 2;              // hangi scope'ları izle
+  string client_id = 3;
+  google.protobuf.Timestamp subscribed_at = 4;
+}
+
+// ConfigChange: Config değişiklik bildirimi
+message ConfigChange {
+  string change_id = 1;
+  string config_id = 2;
+  string scope = 3;
+  ChangeType change_type = 4;
+  ConfigEntry old_config = 5;
+  ConfigEntry new_config = 6;
+  repeated ConfigDiff diffs = 7;
+  google.protobuf.Timestamp changed_at = 8;
+}
+
+// ChangeType: Değişiklik tipi
+enum ChangeType {
+  CHANGE_TYPE_UNSPECIFIED = 0;
+  CHANGE_TYPE_CREATED = 1;
+  CHANGE_TYPE_UPDATED = 2;
+  CHANGE_TYPE_DELETED = 3;
+}
+
+// ConfigService: gRPC servisi
+service ConfigService {
+  // Config al
+  rpc GetConfig(GetConfigRequest) returns (ConfigEntry);
+  
+  // Config oluştur
+  rpc CreateConfig(CreateConfigRequest) returns (ConfigEntry);
+  
+  // Config güncelle
+  rpc UpdateConfig(UpdateConfigRequest) returns (ConfigEntry);
+  
+  // Config sil
+  rpc DeleteConfig(DeleteConfigRequest) returns (DeleteConfigResponse);
+  
+  // Config listele
+  rpc ListConfigs(ListConfigsRequest) returns (ListConfigsResponse);
+  
+  // Config geçmişi
+  rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+  
+  // Config karşılaştır
+  rpc CompareConfigs(CompareConfigsRequest) returns (CompareConfigsResponse);
+  
+  // Config doğrula
+  rpc ValidateConfig(ValidateConfigRequest) returns (ConfigValidationResult);
+  
+  // Config değişikliklerini izle (server streaming)
+  rpc WatchConfig(WatchConfigRequest) returns (stream ConfigChange);
+}
+
+// GetConfigRequest: Config alma isteği
+message GetConfigRequest {
+  string scope = 1;
+  string version = 2;  // boş ise en son versiyon
+  string tenant_id = 3;
+}
+
+// CreateConfigRequest: Config oluşturma isteği
+message CreateConfigRequest {
+  string scope = 1;
+  ConfigFormat format = 2;
+  bytes data = 3;
+  ConfigMetadata metadata = 4;
+}
+
+// UpdateConfigRequest: Config güncelleme isteği
+message UpdateConfigRequest {
+  string config_id = 1;
+  bytes data = 2;
+  ConfigMetadata metadata = 3;
+  repeated string update_mask = 4;  // hangi alanlar güncellenecek
+}
+
+// DeleteConfigRequest: Config silme isteği
+message DeleteConfigRequest {
+  string config_id = 1;
+}
+
+// DeleteConfigResponse: Config silme yanıtı
+message DeleteConfigResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ListConfigsRequest: Config listesi isteği
+message ListConfigsRequest {
+  string scope = 1;          // belirli bir scope
+  string tenant_id = 2;
+  string environment = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+// ListConfigsResponse: Config listesi yanıtı
+message ListConfigsResponse {
+  repeated ConfigEntry configs = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// GetHistoryRequest: Config geçmiş isteği
+message GetHistoryRequest {
+  string config_id = 1;
+  int32 limit = 2;
+}
+
+// GetHistoryResponse: Config geçmiş yanıtı
+message GetHistoryResponse {
+  repeated ConfigHistory history = 1;
+}
+
+// CompareConfigsRequest: Config karşılaştırma isteği
+message CompareConfigsRequest {
+  string config_id_1 = 1;
+  string config_id_2 = 2;
+}
+
+// CompareConfigsResponse: Config karşılaştırma yanıtı
+message CompareConfigsResponse {
+  repeated ConfigDiff diffs = 1;
+  bool are_equal = 2;
+}
+
+// ValidateConfigRequest: Config doğrulama isteği
+message ValidateConfigRequest {
+  string scope = 1;
+  ConfigFormat format = 2;
+  bytes data = 3;
+}
+
+// WatchConfigRequest: Config izleme isteği
+message WatchConfigRequest {
+  repeated string scopes = 1;
+  string tenant_id = 2;
+}
+

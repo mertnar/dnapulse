@@ -2,12 +2,210 @@ syntax = "proto3";
 package dna.decision.v1;
 
 import "google/protobuf/timestamp.proto";
+import "dna/event/v1/event.proto";
 
+option go_package = "github.com/dnasol/dna-platform/sdks/go-sdk/gen/decision/v1;decisionv1";
+
+// Alert: Uyarı mesajı
 message Alert {
   string alert_id = 1;
   string kind = 2;                  // e.g., "suspicious_login"
-  string severity = 3;              // low|medium|high
-  map<string,string> tags = 4;      // tenant, user, device...
+  AlertSeverity severity = 3;
+  map<string, string> tags = 4;     // tenant, user, device...
   string summary = 5;
   google.protobuf.Timestamp ts = 6;
+  
+  // Tetikleyen event
+  dna.event.v1.Event triggering_event = 7;
+  
+  // Alert durumu
+  AlertStatus status = 8;
+  
+  // Alert detayları
+  AlertDetails details = 9;
+}
+
+// AlertSeverity: Uyarı önem derecesi
+enum AlertSeverity {
+  ALERT_SEVERITY_UNSPECIFIED = 0;
+  ALERT_SEVERITY_LOW = 1;
+  ALERT_SEVERITY_MEDIUM = 2;
+  ALERT_SEVERITY_HIGH = 3;
+  ALERT_SEVERITY_CRITICAL = 4;
+}
+
+// AlertStatus: Uyarı durumu
+enum AlertStatus {
+  ALERT_STATUS_UNSPECIFIED = 0;
+  ALERT_STATUS_OPEN = 1;
+  ALERT_STATUS_ACKNOWLEDGED = 2;
+  ALERT_STATUS_INVESTIGATING = 3;
+  ALERT_STATUS_RESOLVED = 4;
+  ALERT_STATUS_CLOSED = 5;
+  ALERT_STATUS_FALSE_POSITIVE = 6;
+}
+
+// AlertDetails: Uyarı detayları
+message AlertDetails {
+  string description = 1;
+  map<string, string> metadata = 2;
+  repeated string affected_entities = 3;
+  repeated Action recommended_actions = 4;
+  string assignee = 5;
+  google.protobuf.Timestamp acknowledged_at = 6;
+  google.protobuf.Timestamp resolved_at = 7;
+}
+
+// Action: Aksiyon
+message Action {
+  string action_id = 1;
+  ActionType type = 2;
+  map<string, string> params = 3;
+  ActionStatus status = 4;
+  google.protobuf.Timestamp executed_at = 5;
+  string result = 6;
+}
+
+// ActionType: Aksiyon tipi
+enum ActionType {
+  ACTION_TYPE_UNSPECIFIED = 0;
+  ACTION_TYPE_INDEX_ES = 1;        // Elasticsearch'e index
+  ACTION_TYPE_WEBHOOK = 2;         // Webhook çağır
+  ACTION_TYPE_EMAIL = 3;           // Email gönder
+  ACTION_TYPE_SLACK = 4;           // Slack bildirim
+  ACTION_TYPE_PAGERDUTY = 5;       // PagerDuty alert
+  ACTION_TYPE_CUSTOM = 6;          // Özel aksiyon
+}
+
+// ActionStatus: Aksiyon durumu
+enum ActionStatus {
+  ACTION_STATUS_UNSPECIFIED = 0;
+  ACTION_STATUS_PENDING = 1;
+  ACTION_STATUS_EXECUTING = 2;
+  ACTION_STATUS_COMPLETED = 3;
+  ACTION_STATUS_FAILED = 4;
+}
+
+// Policy: Karar politikası
+message Policy {
+  string policy_id = 1;
+  string name = 2;
+  string description = 3;
+  
+  // Politika koşulu (expression)
+  string condition = 4;
+  
+  // Politika aksiyonları
+  repeated Action actions = 5;
+  
+  // Öncelik
+  int32 priority = 6;
+  
+  // Aktif mi?
+  bool enabled = 7;
+  
+  // Metadata
+  map<string, string> metadata = 8;
+}
+
+// DecisionResult: Karar sonucu
+message DecisionResult {
+  string decision_id = 1;
+  
+  // Değerlendirilen event
+  dna.event.v1.Event event = 2;
+  
+  // Eşleşen politikalar
+  repeated PolicyMatch matched_policies = 3;
+  
+  // Çalıştırılan aksiyonlar
+  repeated Action executed_actions = 4;
+  
+  // Karar zamanı
+  google.protobuf.Timestamp decided_at = 5;
+  
+  // İşleme süresi (ms)
+  int64 processing_time_ms = 6;
+}
+
+// PolicyMatch: Politika eşleşmesi
+message PolicyMatch {
+  Policy policy = 1;
+  bool matched = 2;
+  string match_reason = 3;
+  double confidence = 4;
+}
+
+// DecisionService: gRPC servisi
+service DecisionService {
+  // Karar ver
+  rpc Decide(DecideRequest) returns (DecisionResult);
+  
+  // Toplu karar
+  rpc BatchDecide(BatchDecideRequest) returns (BatchDecideResponse);
+  
+  // Alert oluştur
+  rpc CreateAlert(CreateAlertRequest) returns (Alert);
+  
+  // Alert güncelle
+  rpc UpdateAlert(UpdateAlertRequest) returns (Alert);
+  
+  // Alert listesi
+  rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse);
+}
+
+// DecideRequest: Karar isteği
+message DecideRequest {
+  dna.event.v1.Event event = 1;
+  DecisionOptions options = 2;
+}
+
+// DecisionOptions: Karar seçenekleri
+message DecisionOptions {
+  bool dry_run = 1;                    // aksiyonları çalıştırma, sadece değerlendir
+  repeated string policy_ids = 2;      // sadece belirli politikaları değerlendir
+  bool skip_actions = 3;               // aksiyonları atla
+}
+
+// BatchDecideRequest: Toplu karar isteği
+message BatchDecideRequest {
+  repeated dna.event.v1.Event events = 1;
+  DecisionOptions options = 2;
+}
+
+// BatchDecideResponse: Toplu karar yanıtı
+message BatchDecideResponse {
+  repeated DecisionResult results = 1;
+  int32 total = 2;
+  int32 matched = 3;
+  int32 unmatched = 4;
+}
+
+// CreateAlertRequest: Alert oluşturma isteği
+message CreateAlertRequest {
+  Alert alert = 1;
+}
+
+// UpdateAlertRequest: Alert güncelleme isteği
+message UpdateAlertRequest {
+  string alert_id = 1;
+  Alert alert = 2;
+  repeated string update_mask = 3;  // hangi alanlar güncellenecek
+}
+
+// ListAlertsRequest: Alert listesi isteği
+message ListAlertsRequest {
+  AlertSeverity severity = 1;
+  AlertStatus status = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+// ListAlertsResponse: Alert listesi yanıtı
+message ListAlertsResponse {
+  repeated Alert alerts = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
 }

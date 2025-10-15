@@ -3,6 +3,8 @@ package dna.event.v1;
 
 import "google/protobuf/timestamp.proto";
 
+option go_package = "github.com/dnasol/dna-platform/sdks/go-sdk/gen/event/v1;eventv1";
+
 message Trace {
   string trace_id = 1;
   string span_id  = 2;
