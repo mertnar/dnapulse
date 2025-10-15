@@ -1,4 +1,5 @@
 {{- if .Values.infrastructure.redpanda.enabled }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,18 +30,10 @@ spec:
         image: "{{ .Values.infrastructure.redpanda.image.repository }}:{{ .Values.infrastructure.redpanda.image.tag }}"
         imagePullPolicy: {{ .Values.infrastructure.redpanda.image.pullPolicy }}
         command:
-        - redpanda
-        - start
-        - --kafka-addr
-        - internal://0.0.0.0:{{ .Values.infrastructure.redpanda.service.port }},external://0.0.0.0:{{ .Values.infrastructure.redpanda.service.externalPort }}
-        - --advertise-kafka-addr
-        - internal://redpanda:{{ .Values.infrastructure.redpanda.service.port }},external://localhost:{{ .Values.infrastructure.redpanda.service.externalPort }}
-        - --smp
-        - "1"
-        - --memory
-        - "1G"
-        - --mode
-        - dev-container
+        - /bin/bash
+        - -c
+        - |
+          rpk redpanda start --smp 1 --memory 512M --reserve-memory 0M --overprovisioned --kafka-addr internal://0.0.0.0:9092 --advertise-kafka-addr internal://redpanda:9092
         ports:
         - containerPort: {{ .Values.infrastructure.redpanda.service.port }}
           name: kafka-internal

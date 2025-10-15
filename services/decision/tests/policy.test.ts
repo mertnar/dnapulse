@@ -1,4 +1,6 @@
-"""Tests for decision service policy parsing and action dispatch."""
+/**
+ * Tests for decision service policy parsing and action dispatch.
+ */
 
 import { PolicyEngine } from '../src/engine/policy-engine';
 import { PluginRegistry } from '../src/plugins/plugin-registry';
@@ -285,4 +287,3 @@ describe('Decision Service Policy Tests', () => {
     });
   });
 });
-

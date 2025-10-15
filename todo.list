@@ -1,0 +1,10 @@
+Test Coverage: Jest test dosyaları eksik - unit testler eklenebilir
+Schema Issue: processing.rules.schema.json dosyasında JSON Schema draft 2020-12 referansı sorunu var
+Authentication: Production için MongoDB authentication aktif edilmeli
+
+
+Öneriler:
+Kafka/Redpanda: Ingestion servisi için message bus gerekli
+Elasticsearch: Decision servisi için search engine gerekli
+Rate Limiting: Production için güvenlik ayarları
+Source Filtering: Güvenlik politikaları

@@ -15,10 +15,10 @@ const logger = pino({
       options: {
         colorize: true,
         translateTime: 'SYS:standard',
-        ignore: 'pid,hostname'
-      }
-    }
-  })
+        ignore: 'pid,hostname',
+      },
+    },
+  }),
 });
 
 // Create services
@@ -40,7 +40,7 @@ const kafkaConsumer = new KafkaConsumer(
 
 // Create Fastify instance
 const fastify = Fastify({
-  disableRequestLogging: true
+  disableRequestLogging: true,
 });
 
 // Register routes
@@ -54,27 +54,30 @@ async function start() {
   try {
     // Load initial configuration
     await configManager.loadInitialConfig();
-    
+
     // Start config hot reload
     configManager.startHotReload();
-    
+
     // Start Kafka consumer
     await kafkaConsumer.start();
-    
+
     // Start HTTP server
     await fastify.listen({
       port: config.port,
-      host: config.host
+      host: config.host,
     });
 
-    logger.info({
-      port: config.port,
-      host: config.host,
-      inputTopic: config.inputTopic,
-      outputTopic: config.outputTopic,
-      configScope: config.configScope,
-      rulesLoaded: configManager.getRuleCount()
-    }, 'Categorization service started successfully');
+    logger.info(
+      {
+        port: config.port,
+        host: config.host,
+        inputTopic: config.inputTopic,
+        outputTopic: config.outputTopic,
+        configScope: config.configScope,
+        rulesLoaded: configManager.getRuleCount(),
+      },
+      'Categorization service started successfully'
+    );
 
     // Graceful shutdown handlers
     process.on('SIGTERM', async () => {
@@ -86,7 +89,6 @@ async function start() {
       logger.info('SIGINT received, shutting down gracefully');
       await shutdown();
     });
-
   } catch (error) {
     logger.error(error, 'Failed to start categorization service');
     process.exit(1);
@@ -97,13 +99,13 @@ async function shutdown() {
   try {
     // Stop Kafka consumer
     await kafkaConsumer.stop();
-    
+
     // Stop config hot reload
     configManager.stopHotReload();
-    
+
     // Close HTTP server
     await fastify.close();
-    
+
     logger.info('Categorization service stopped successfully');
     process.exit(0);
   } catch (error) {

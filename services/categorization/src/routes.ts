@@ -11,16 +11,14 @@ export async function routes(fastify: FastifyInstance) {
       status: 'healthy',
       service: 'categorization',
       timestamp: new Date().toISOString(),
-      rules: configManager.getRuleCount()
+      rules: configManager.getRuleCount(),
     });
   });
 
   // Metrics endpoint
   fastify.get('/metrics', async (_request, reply) => {
     const metrics = await getMetrics();
-    return reply
-      .type('text/plain')
-      .send(metrics);
+    return reply.type('text/plain').send(metrics);
   });
 
   // Debug endpoint for rules (only in development)
@@ -33,7 +31,7 @@ export async function routes(fastify: FastifyInstance) {
     return reply.send({
       rules,
       count: rules.length,
-      etag: configManager.getCurrentEtag()
+      etag: configManager.getCurrentEtag(),
     });
   });
 
@@ -45,13 +43,13 @@ export async function routes(fastify: FastifyInstance) {
         status: 'success',
         message: 'Config reloaded successfully',
         rules: configManager.getRuleCount(),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       return reply.status(500).send({
         status: 'error',
         message: 'Failed to reload config',
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   });

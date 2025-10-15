@@ -17,16 +17,14 @@ export class ExpressionEvaluator {
   evaluate(expression: string, context: EvaluationContext): boolean {
     try {
       // Normalize expression: replace && with 'and', || with 'or' for expr-eval compatibility
-      const normalizedExpression = expression
-        .replace(/&&/g, ' and ')
-        .replace(/\|\|/g, ' or ');
+      const normalizedExpression = expression.replace(/&&/g, ' and ').replace(/\|\|/g, ' or ');
 
       // Create a sandboxed context with only allowed properties
       const sandboxedContext = {
         type: context.type,
         payload: context.payload || {},
         attributes: context.attributes || {},
-        ts: context.ts || new Date().toISOString()
+        ts: context.ts || new Date().toISOString(),
       };
 
       // Parse and evaluate the expression
@@ -48,9 +46,7 @@ export class ExpressionEvaluator {
    */
   validate(expression: string): boolean {
     try {
-      const normalizedExpression = expression
-        .replace(/&&/g, ' and ')
-        .replace(/\|\|/g, ' or ');
+      const normalizedExpression = expression.replace(/&&/g, ' and ').replace(/\|\|/g, ' or ');
       this.parser.parse(normalizedExpression);
       return true;
     } catch (error) {
@@ -65,9 +61,7 @@ export class ExpressionEvaluator {
    */
   getVariables(expression: string): string[] {
     try {
-      const normalizedExpression = expression
-        .replace(/&&/g, ' and ')
-        .replace(/\|\|/g, ' or ');
+      const normalizedExpression = expression.replace(/&&/g, ' and ').replace(/\|\|/g, ' or ');
       const ast = this.parser.parse(normalizedExpression);
       return ast.variables();
     } catch (error) {
@@ -75,4 +69,3 @@ export class ExpressionEvaluator {
     }
   }
 }
-

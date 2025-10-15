@@ -20,7 +20,7 @@ export class IndexEsPlugin implements ActionPlugin {
         type: context.type,
         payload: context.payload,
         attributes: context.attributes || {},
-        event_ts: context.ts
+        event_ts: context.ts,
       };
 
       // Use bulk API if specified, otherwise use single document index
@@ -38,7 +38,7 @@ export class IndexEsPlugin implements ActionPlugin {
   }
 
   private async indexDocument(index: string, document: any, docId?: string): Promise<void> {
-    const url = docId 
+    const url = docId
       ? `${this.elasticsearchUrl}/${index}/_doc/${docId}`
       : `${this.elasticsearchUrl}/${index}/_doc`;
 
@@ -49,30 +49,20 @@ export class IndexEsPlugin implements ActionPlugin {
       url,
       data: document,
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     });
   }
 
   private async bulkIndex(index: string, document: any, docId?: string): Promise<void> {
-    const action = docId 
-      ? { index: { _index: index, _id: docId } }
-      : { index: { _index: index } };
+    const action = docId ? { index: { _index: index, _id: docId } } : { index: { _index: index } };
 
-    const bulkBody = [
-      action,
-      document
-    ].map(item => JSON.stringify(item)).join('\n') + '\n';
+    const bulkBody = [action, document].map((item) => JSON.stringify(item)).join('\n') + '\n';
 
-    await axios.post(
-      `${this.elasticsearchUrl}/_bulk`,
-      bulkBody,
-      {
-        headers: {
-          'Content-Type': 'application/x-ndjson'
-        }
-      }
-    );
+    await axios.post(`${this.elasticsearchUrl}/_bulk`, bulkBody, {
+      headers: {
+        'Content-Type': 'application/x-ndjson',
+      },
+    });
   }
 }
-

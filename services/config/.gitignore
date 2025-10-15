@@ -1,0 +1,6 @@
+# Binary files
+services/ingestion/ingestion
+services/correlation/correlation
+services/processing/processing
+services/*/__pycache__/
+services/*/node_modules/

@@ -4,28 +4,27 @@ FROM golang:1.23-alpine AS builder
 WORKDIR /app
 
 # Copy go mod files
-COPY go.mod go.sum ./
+COPY services/correlation/go.mod services/correlation/go.sum ./
 COPY sdks/go-sdk ./sdks/go-sdk
 
 # Download dependencies
 RUN go mod download
 
 # Copy source code
-COPY services/correlation ./services/correlation
+COPY services/correlation ./
 
 # Build the application
-WORKDIR /app/services/correlation
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o correlation ./cmd/correlation
 
 # Runtime stage
-FROM alpine:latest
+FROM alpine:3.19
 
 RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
 # Copy the binary from builder stage
-COPY --from=builder /app/services/correlation/correlation .
+COPY --from=builder /app/correlation .
 
 # Expose port
 EXPOSE 8082

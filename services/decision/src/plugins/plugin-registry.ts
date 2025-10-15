@@ -18,7 +18,7 @@ export class PluginRegistry {
 
   async execute(pluginName: string, context: EvaluationContext, params: any): Promise<void> {
     const plugin = this.plugins.get(pluginName);
-    
+
     if (!plugin) {
       throw new Error(`Plugin not found: ${pluginName}`);
     }
@@ -34,4 +34,3 @@ export class PluginRegistry {
     return Array.from(this.plugins.keys());
   }
 }
-

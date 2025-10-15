@@ -19,5 +19,5 @@ export const config: Config = {
   configUrl: process.env['CONFIG_URL'] || 'http://localhost:8080',
   configScope: process.env['CONFIG_SCOPE'] || 'categorization',
   configSseUrl: process.env['CONFIG_SSE_URL'] || 'http://localhost:8080',
-  nodeEnv: process.env['NODE_ENV'] || 'development'
+  nodeEnv: process.env['NODE_ENV'] || 'development',
 };

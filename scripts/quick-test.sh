@@ -22,14 +22,33 @@ log_error() {
     echo -e "${RED}[FAIL]${NC} $1"
 }
 
+# Environment detection
+ENVIRONMENT=${ENVIRONMENT:-"local"}
+if [ "$ENVIRONMENT" = "docker" ]; then
+    INGESTION_PORT=8092
+    DECISION_PORT=8091
+    CONFIG_PORT=8087
+    MODEL_PORT=8090
+elif [ "$ENVIRONMENT" = "k8s" ]; then
+    INGESTION_PORT=$(kubectl get svc dna-ingestion -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "30002")
+    DECISION_PORT=$(kubectl get svc dna-decision -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "30004")
+    CONFIG_PORT=$(kubectl get svc dna-config -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "30001")
+    MODEL_PORT=$(kubectl get svc dna-model -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "30007")
+else
+    INGESTION_PORT=8092
+    DECISION_PORT=8091
+    CONFIG_PORT=${CONFIG_PORT:-8087}
+    MODEL_PORT=8090
+fi
+
 # Test available services
 test_service_health() {
     local service=$1
     local port=$2
     local url="http://localhost:$port"
-    
+
     log_info "Testing $service on port $port..."
-    
+
     if curl -s -f "$url/health" > /dev/null 2>&1; then
         local health_response=$(curl -s "$url/health")
         log_success "$service is healthy"
@@ -44,7 +63,7 @@ test_service_health() {
 # Test ingestion with sample data
 test_ingestion() {
     log_info "Testing ingestion service..."
-    
+
     local test_event='{
         "event_id": "test_001",
         "@timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
@@ -60,11 +79,11 @@ test_ingestion() {
             "environment": "test"
         }
     }'
-    
-    local response=$(curl -s -w "%{http_code}" -X POST "http://localhost:8080/ingest" \
+
+    local response=$(curl -s -w "%{http_code}" -X POST "http://localhost:$INGESTION_PORT/ingest" \
         -H "Content-Type: application/json" \
         -d "$test_event")
-    
+
     local http_code="${response: -3}"
     if [ "$http_code" = "200" ]; then
         log_success "Ingestion test passed (HTTP $http_code)"
@@ -78,7 +97,7 @@ test_ingestion() {
 # Test model inference
 test_model() {
     log_info "Testing model service inference..."
-    
+
     local inference_request='{
         "features": {
             "count": 5,
@@ -86,11 +105,11 @@ test_model() {
             "severity": "warning"
         }
     }'
-    
-    local response=$(curl -s -w "%{http_code}" -X POST "http://localhost:8086/v1/infer" \
+
+    local response=$(curl -s -w "%{http_code}" -X POST "http://localhost:$MODEL_PORT/v1/infer" \
         -H "Content-Type: application/json" \
         -d "$inference_request")
-    
+
     local http_code="${response: -3}"
     if [ "$http_code" = "200" ]; then
         log_success "Model inference test passed (HTTP $http_code)"
@@ -104,22 +123,22 @@ test_model() {
 # Test config service
 test_config() {
     log_info "Testing config service..."
-    
+
     # Test config listing
-    local list_response=$(curl -s -w "%{http_code}" "http://localhost:8083/v1/config")
+    local list_response=$(curl -s -w "%{http_code}" "http://localhost:$CONFIG_PORT/v1/config")
     local list_http_code="${list_response: -3}"
-    
+
     if [ "$list_http_code" = "200" ]; then
         log_success "Config listing test passed (HTTP $list_http_code)"
         echo "  Available configs: ${list_response%???}"
     else
         log_error "Config listing test failed (HTTP $list_http_code)"
     fi
-    
+
     # Test config retrieval
-    local get_response=$(curl -s -w "%{http_code}" "http://localhost:8083/v1/config/decision")
+    local get_response=$(curl -s -w "%{http_code}" "http://localhost:$CONFIG_PORT/v1/config/decision")
     local get_http_code="${get_response: -3}"
-    
+
     if [ "$get_http_code" = "200" ]; then
         log_success "Config retrieval test passed (HTTP $get_http_code)"
     else
@@ -134,13 +153,13 @@ echo "=========================================="
 echo
 
 # Test service health
-test_service_health "Ingestion" 8080
+test_service_health "Ingestion" $INGESTION_PORT
 echo
-test_service_health "Decision" 8081
+test_service_health "Decision" $DECISION_PORT
 echo
-test_service_health "Config" 8083
+test_service_health "Config" $CONFIG_PORT
 echo
-test_service_health "Model" 8086
+test_service_health "Model" $MODEL_PORT
 echo
 
 # Test functionality

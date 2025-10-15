@@ -26,9 +26,9 @@ export class ConfigClient {
    */
   async load(scope: string, etag?: string): Promise<LoadResult> {
     const url = `${this.baseURL}/v1/config/${scope}`;
-    
+
     const headers: Record<string, string> = {
-      'Accept': 'application/x-yaml',
+      Accept: 'application/x-yaml',
     };
 
     if (etag) {
@@ -57,7 +57,7 @@ export class ConfigClient {
    */
   watchSSE(onUpdate: (update: SSEUpdate) => void): EventSource {
     const sseURL = `${this.baseURL}/v1/stream`;
-    
+
     const eventSource = new EventSource(sseURL);
 
     eventSource.addEventListener('config:update', (event) => {
@@ -96,9 +96,9 @@ export class ConfigClient {
    * @returns Promise with config data
    */
   async loadWithRetry(
-    scope: string, 
-    etag?: string, 
-    maxRetries: number = 3, 
+    scope: string,
+    etag?: string,
+    maxRetries: number = 3,
     baseDelayMs: number = 1000
   ): Promise<LoadResult> {
     let lastError: Error | null = null;
@@ -108,10 +108,10 @@ export class ConfigClient {
         return await this.load(scope, etag);
       } catch (error) {
         lastError = error as Error;
-        
+
         if (attempt < maxRetries - 1) {
           const delay = baseDelayMs * Math.pow(2, attempt); // Exponential backoff
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
@@ -127,11 +127,7 @@ export class ConfigClient {
  * @param etag Optional ETag for conditional requests
  * @returns Promise with config data, ETag, and status code
  */
-export async function load(
-  baseURL: string, 
-  scope: string, 
-  etag?: string
-): Promise<LoadResult> {
+export async function load(baseURL: string, scope: string, etag?: string): Promise<LoadResult> {
   const client = new ConfigClient(baseURL);
   return client.load(scope, etag);
 }
@@ -142,10 +138,7 @@ export async function load(
  * @param onUpdate Callback function for updates
  * @returns EventSource instance
  */
-export function watchSSE(
-  sseURL: string, 
-  onUpdate: (update: SSEUpdate) => void
-): EventSource {
+export function watchSSE(sseURL: string, onUpdate: (update: SSEUpdate) => void): EventSource {
   const client = new ConfigClient(sseURL);
   return client.watchSSE(onUpdate);
 }

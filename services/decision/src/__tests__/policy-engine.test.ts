@@ -18,9 +18,9 @@ describe('PolicyEngine', () => {
           {
             id: 'test-policy',
             when: 'type=="metric"',
-            actions: [{ type: 'index-es', index: 'alerts' }]
-          }
-        ]
+            actions: [{ type: 'index-es', index: 'alerts' }],
+          },
+        ],
       };
 
       engine.loadPolicies(config);
@@ -33,14 +33,14 @@ describe('PolicyEngine', () => {
           {
             id: 'valid-policy',
             when: 'type=="metric"',
-            actions: []
+            actions: [],
           },
           {
             id: 'invalid-policy',
             when: 'invalid..expression',
-            actions: []
-          }
-        ]
+            actions: [],
+          },
+        ],
       };
 
       engine.loadPolicies(config);
@@ -53,8 +53,8 @@ describe('PolicyEngine', () => {
         alerts: [],
         settings: {
           max_policies: 50,
-          evaluation_timeout: 5000
-        }
+          evaluation_timeout: 5000,
+        },
       };
 
       engine.loadPolicies(config);
@@ -71,17 +71,17 @@ describe('PolicyEngine', () => {
           {
             id: 'high-cpu',
             when: 'type=="metric" && payload.name=="cpu_load" && payload.value>0.9',
-            actions: [{ type: 'index-es', index: 'alerts' }]
+            actions: [{ type: 'index-es', index: 'alerts' }],
           },
           {
             id: 'error-log',
             when: 'type=="log" && payload.level=="error"',
-            actions: [{ type: 'webhook', url: 'http://test.local' }]
-          }
+            actions: [{ type: 'webhook', url: 'http://test.local' }],
+          },
         ],
         settings: {
-          parallel_evaluation: false
-        }
+          parallel_evaluation: false,
+        },
       };
 
       engine.loadPolicies(config);
@@ -90,11 +90,11 @@ describe('PolicyEngine', () => {
     it('should match policies correctly', async () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: { name: 'cpu_load', value: 0.95 }
+        payload: { name: 'cpu_load', value: 0.95 },
       };
 
       const results = await engine.evaluate(context);
-      
+
       expect(results).toHaveLength(2);
       expect(results[0]?.matched).toBe(true);
       expect(results[0]?.policyId).toBe('high-cpu');
@@ -104,22 +104,22 @@ describe('PolicyEngine', () => {
     it('should not match when conditions are not met', async () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: { name: 'cpu_load', value: 0.5 }
+        payload: { name: 'cpu_load', value: 0.5 },
       };
 
       const results = await engine.evaluate(context);
-      
+
       expect(results[0]?.matched).toBe(false);
     });
 
     it('should include execution time in results', async () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: { name: 'cpu_load', value: 0.95 }
+        payload: { name: 'cpu_load', value: 0.95 },
       };
 
       const results = await engine.evaluate(context);
-      
+
       expect(results[0]?.executionTime).toBeDefined();
       expect(results[0]?.executionTime).toBeGreaterThanOrEqual(0);
     });
@@ -132,9 +132,9 @@ describe('PolicyEngine', () => {
           {
             id: 'test-policy',
             when: 'type=="metric"',
-            actions: []
-          }
-        ]
+            actions: [],
+          },
+        ],
       };
 
       engine.loadPolicies(config);
@@ -159,12 +159,12 @@ describe('PolicyEngine', () => {
           {
             id: 'policy1',
             when: 'type=="metric"',
-            actions: []
-          }
+            actions: [],
+          },
         ],
         settings: {
-          parallel_evaluation: true
-        }
+          parallel_evaluation: true,
+        },
       };
 
       engine.loadPolicies(config);
@@ -176,4 +176,3 @@ describe('PolicyEngine', () => {
     });
   });
 });
-

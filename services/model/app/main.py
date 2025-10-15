@@ -4,7 +4,6 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
@@ -44,22 +43,22 @@ env_config = get_env_config()
 async def startup_event():
     """Initialize the service on startup."""
     global config_manager, inference_engine
-    
+
     print("Starting Model service...")
-    
+
     # Initialize config manager
     config_manager = ConfigManager(env_config["config_url"], env_config["config_scope"])
-    
+
     # Load initial configuration
     config_loaded = await config_manager.load_config()
     if config_loaded:
         print("Configuration loaded successfully")
     else:
         print("Failed to load configuration, using defaults")
-    
+
     # Initialize inference engine
     inference_engine = InferenceEngine(config_manager)
-    
+
     # Start Kafka consumer loop in background
     asyncio.create_task(
         inference_engine.start_consumer_loop(
@@ -68,10 +67,10 @@ async def startup_event():
             env_config["output_topic"]
         )
     )
-    
+
     # Start SSE hot reload in background
     asyncio.create_task(start_sse_hot_reload())
-    
+
     print(f"Model service started on port {env_config['port']}")
 
 
@@ -87,10 +86,10 @@ async def shutdown_event():
 async def infer(request: InferenceRequest) -> InferenceResponse:
     """
     Perform inference on provided features.
-    
+
     Args:
         request: Inference request with features
-        
+
     Returns:
         InferenceResponse: Inference result
     """
@@ -105,7 +104,7 @@ async def infer(request: InferenceRequest) -> InferenceResponse:
 async def health():
     """Health check endpoint."""
     config_loaded = config_manager.config is not None
-    
+
     return HealthResponse(
         status="healthy",
         service="model",
@@ -128,7 +127,7 @@ async def debug_config():
     """Debug endpoint to show current configuration."""
     if not env_config["debug"]:
         raise HTTPException(status_code=403, detail="Debug mode not enabled")
-    
+
     config = config_manager.get_config()
     return {
         "config": config.model_dump(),
@@ -139,15 +138,15 @@ async def debug_config():
 
 async def start_sse_hot_reload():
     """Start SSE hot reload for configuration updates."""
-    import sseclient
     import httpx
-    
+    import json
+
     sse_url = f"{env_config['config_sse_url']}/v1/stream"
-    
+
     while True:
         try:
             print(f"Connecting to SSE: {sse_url}")
-            
+
             async with httpx.AsyncClient() as client:
                 async with client.stream('GET', sse_url) as response:
                     if response.status_code == 200:
@@ -155,25 +154,25 @@ async def start_sse_hot_reload():
                             if line.startswith('data: '):
                                 try:
                                     data = json.loads(line[6:])  # Remove 'data: ' prefix
-                                    
+
                                     if data.get('scope') == env_config['config_scope']:
                                         print(f"Config update received for scope: {data.get('scope')}")
-                                        
+
                                         # Reload configuration
                                         success = await config_manager.load_config()
                                         if success:
                                             print("Configuration reloaded successfully")
                                         else:
                                             print("Failed to reload configuration")
-                                            
+
                                 except json.JSONDecodeError:
                                     continue  # Skip non-JSON data
                     else:
                         print(f"SSE connection failed: {response.status_code}")
-                        
+
         except Exception as e:
             print(f"SSE connection error: {e}")
-            
+
         # Wait before retrying
         await asyncio.sleep(5)
 

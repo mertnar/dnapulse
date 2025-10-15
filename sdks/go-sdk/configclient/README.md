@@ -29,24 +29,24 @@ import (
     "context"
     "fmt"
     "log"
-    
+
     "github.com/dnasol/dna-platform/sdks/go-sdk/configclient"
 )
 
 func main() {
     ctx := context.Background()
-    
+
     // Load config
     yaml, etag, status, err := configclient.Load(
-        ctx, 
-        "http://localhost:8080", 
-        "processing", 
+        ctx,
+        "http://localhost:8080",
+        "processing",
         nil,
     )
     if err != nil {
         log.Fatal(err)
     }
-    
+
     fmt.Printf("Config loaded: %s\n", yaml)
     fmt.Printf("ETag: %s\n", etag)
     fmt.Printf("Status: %d\n", status)
@@ -63,28 +63,28 @@ import (
     "fmt"
     "log"
     "time"
-    
+
     "github.com/dnasol/dna-platform/sdks/go-sdk/configclient"
 )
 
 func main() {
     client := configclient.New("http://localhost:8080")
     ctx := context.Background()
-    
+
     // Load initial config
     result, err := client.Load(ctx, "decision", nil)
     if err != nil {
         log.Fatal(err)
     }
-    
+
     fmt.Printf("Config: %s\n", result.YAML)
-    
+
     // Load with conditional request
     result2, err := client.Load(ctx, "decision", &result.ETag)
     if err != nil {
         log.Fatal(err)
     }
-    
+
     fmt.Printf("Status: %d\n", result2.Status) // 304 if not modified
 }
 ```
@@ -99,29 +99,29 @@ import (
     "fmt"
     "log"
     "time"
-    
+
     "github.com/dnasol/dna-platform/sdks/go-sdk/configclient"
 )
 
 func main() {
     client := configclient.New("http://localhost:8080")
-    
+
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
-    
+
     err := client.WatchSSE(ctx, func(scope, etag string) {
         fmt.Printf("Config updated - Scope: %s, ETag: %s\n", scope, etag)
-        
+
         // Reload config when it changes
         result, err := client.Load(ctx, scope, nil)
         if err != nil {
             log.Printf("Error reloading config: %v", err)
             return
         }
-        
+
         fmt.Printf("Reloaded config: %s\n", result.YAML[:100])
     })
-    
+
     if err != nil {
         log.Printf("SSE watch ended: %v", err)
     }
@@ -137,19 +137,19 @@ import (
     "context"
     "fmt"
     "log"
-    
+
     "github.com/dnasol/dna-platform/sdks/go-sdk/configclient"
 )
 
 func main() {
     client := configclient.New("http://localhost:8080")
     ctx := context.Background()
-    
+
     result, err := client.LoadWithRetry(ctx, "processing", nil, 3)
     if err != nil {
         log.Fatal(err)
     }
-    
+
     fmt.Printf("Config loaded with retry: %s\n", result.YAML)
 }
 ```

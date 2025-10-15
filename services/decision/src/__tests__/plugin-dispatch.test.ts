@@ -25,11 +25,11 @@ describe('PluginRegistry', () => {
     it('should execute index-es plugin', async () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: { name: 'cpu_load', value: 0.95 }
+        payload: { name: 'cpu_load', value: 0.95 },
       };
 
       const params = {
-        index: 'test-alerts'
+        index: 'test-alerts',
       };
 
       // This will attempt to connect to ES, which may fail in test
@@ -46,7 +46,7 @@ describe('PluginRegistry', () => {
     it('should throw error for non-existent plugin', async () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: {}
+        payload: {},
       };
 
       await expect(async () => {
@@ -57,13 +57,13 @@ describe('PluginRegistry', () => {
     it('should execute webhook plugin', async () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: { name: 'cpu_load', value: 0.95 }
+        payload: { name: 'cpu_load', value: 0.95 },
       };
 
       const params = {
         url: 'http://invalid-url-for-testing.local',
         failOnError: false,
-        timeout: 1000 // Short timeout for test
+        timeout: 1000, // Short timeout for test
       };
 
       // Webhook will fail but won't throw if failOnError is false
@@ -80,4 +80,3 @@ describe('PluginRegistry', () => {
     }, 10000);
   });
 });
-

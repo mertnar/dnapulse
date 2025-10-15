@@ -23,13 +23,13 @@ export class ConfigClient {
     try {
       const response = await axios.get(`${this.baseUrl}/v1/config/${scope}`, {
         headers,
-        validateStatus: (status) => status < 500 // Don't throw for 4xx
+        validateStatus: (status) => status < 500, // Don't throw for 4xx
       });
 
       return {
         yaml: response.data,
         etag: response.headers['etag'] || '',
-        status: response.status
+        status: response.status,
       };
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -41,7 +41,7 @@ export class ConfigClient {
 
   watchSSE(sseUrl: string, onUpdate: (scope: string, etag: string) => void): EventSource {
     const eventSource = new EventSource(`${sseUrl}/v1/stream`);
-    
+
     eventSource.onmessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);

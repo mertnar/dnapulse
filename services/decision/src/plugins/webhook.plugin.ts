@@ -23,7 +23,7 @@ export class WebhookPlugin implements ActionPlugin {
         attributes: context.attributes || {},
         event_ts: context.ts,
         // Include custom data if provided
-        ...(params.data || {})
+        ...(params.data || {}),
       };
 
       // Send webhook request
@@ -32,14 +32,14 @@ export class WebhookPlugin implements ActionPlugin {
         url,
         data: payload,
         headers,
-        timeout
+        timeout,
       });
 
       console.log(`Webhook sent successfully to ${url}, status: ${response.status}`);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error(`Webhook failed: ${error.message}, url: ${url}`);
-        
+
         // Don't throw on webhook failures unless configured to do so
         if (params.failOnError) {
           throw error;
@@ -51,4 +51,3 @@ export class WebhookPlugin implements ActionPlugin {
     }
   }
 }
-

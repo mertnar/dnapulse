@@ -2,20 +2,20 @@
 # Default values for dna-platform.
 
 global:
-  imageRegistry: "ghcr.io/mertnar/dna-platform"
+  imageRegistry: 'dna-platform'
   imagePullPolicy: IfNotPresent
-  namespace: "dna-platform"
+  namespace: 'dna-platform'
 
 # Infrastructure Components
 infrastructure:
   enabled: true
-  
+
   # Redpanda (Kafka-compatible message bus)
   redpanda:
     enabled: true
     image:
-      repository: "redpandadata/redpanda"
-      tag: "v23.3.5"
+      repository: 'redpandadata/redpanda'
+      tag: 'v24.2.4'
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
@@ -23,59 +23,59 @@ infrastructure:
       externalPort: 19092
     resources:
       requests:
-        memory: "512Mi"
-        cpu: "250m"
+        memory: '512Mi'
+        cpu: '250m'
       limits:
-        memory: "1Gi"
-        cpu: "500m"
+        memory: '1Gi'
+        cpu: '500m'
     persistence:
       enabled: true
       size: 10Gi
-      storageClass: ""
+      storageClass: ''
     metrics:
       enabled: true
       port: 9644
-      path: "/metrics"
+      path: '/metrics'
       prometheus:
         scrape: true
         annotations:
-          prometheus.io/scrape: "true"
-          prometheus.io/port: "9644"
-          prometheus.io/path: "/metrics"
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '9644'
+          prometheus.io/path: '/metrics'
 
   # MongoDB
   mongodb:
     enabled: true
     image:
-      repository: "mongo"
-      tag: "7.0"
+      repository: 'mongo'
+      tag: '7.0'
       pullPolicy: IfNotPresent
     auth:
       enabled: true
-      rootUsername: "admin"
-      rootPassword: "admin123"
-      database: "dna"
+      rootUsername: 'admin'
+      rootPassword: 'admin123'
+      database: 'dna'
     service:
       type: ClusterIP
       port: 27017
     resources:
       requests:
-        memory: "512Mi"
-        cpu: "250m"
+        memory: '512Mi'
+        cpu: '250m'
       limits:
-        memory: "1Gi"
-        cpu: "500m"
+        memory: '1Gi'
+        cpu: '500m'
     persistence:
       enabled: true
       size: 10Gi
-      storageClass: ""
+      storageClass: ''
 
   # Elasticsearch
   elasticsearch:
     enabled: true
     image:
-      repository: "docker.elastic.co/elasticsearch/elasticsearch"
-      tag: "8.11.0"
+      repository: 'docker.elastic.co/elasticsearch/elasticsearch'
+      tag: '8.11.0'
       pullPolicy: IfNotPresent
     replicas: 1
     service:
@@ -83,49 +83,49 @@ infrastructure:
       port: 9200
     resources:
       requests:
-        memory: "1Gi"
-        cpu: "500m"
+        memory: '1Gi'
+        cpu: '500m'
       limits:
-        memory: "2Gi"
-        cpu: "1000m"
+        memory: '2Gi'
+        cpu: '1000m'
     persistence:
       enabled: true
       size: 20Gi
-      storageClass: ""
+      storageClass: ''
     config:
       discovery:
-        type: "single-node"
+        type: 'single-node'
       xpack:
         security:
           enabled: false
           enrollment:
             enabled: false
       cluster:
-        name: "dna-cluster"
+        name: 'dna-cluster'
 
   # Kibana
   kibana:
     enabled: true
     image:
-      repository: "docker.elastic.co/kibana/kibana"
-      tag: "8.11.0"
+      repository: 'docker.elastic.co/kibana/kibana'
+      tag: '8.11.0'
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
       port: 5601
     resources:
       requests:
-        memory: "512Mi"
-        cpu: "250m"
+        memory: '512Mi'
+        cpu: '250m'
       limits:
-        memory: "1Gi"
-        cpu: "500m"
+        memory: '1Gi'
+        cpu: '500m'
     config:
       server:
-        name: "kibana"
-        host: "0.0.0.0"
+        name: 'kibana'
+        host: '0.0.0.0'
       elasticsearch:
-        hosts: ["http://elasticsearch:9200"]
+        hosts: ['http://elasticsearch:9200']
 
 # DNA Platform Services
 services:
@@ -133,8 +133,8 @@ services:
   ingestion:
     enabled: true
     image:
-      repository: "ghcr.io/mertnar/dna-platform/ingestion"
-      tag: "latest"
+      repository: 'ingestion'
+      tag: 'latest'
       pullPolicy: IfNotPresent
     replicas: 2
     service:
@@ -143,34 +143,34 @@ services:
       targetPort: 8080
     resources:
       requests:
-        memory: "128Mi"
-        cpu: "100m"
+        memory: '128Mi'
+        cpu: '100m'
       limits:
-        memory: "256Mi"
-        cpu: "200m"
+        memory: '256Mi'
+        cpu: '200m'
     env:
-      KAFKA_BROKERS: "redpanda:9092"
-      JWT_ISSUER: "dna-platform"
-      JWT_AUD: "dna-services"
-      JAEGER_ENDPOINT: "http://jaeger:14268/api/traces"
-      PROMETHEUS_PORT: "8081"
+      KAFKA_BROKERS: 'redpanda:9092'
+      JWT_ISSUER: 'dna-platform'
+      JWT_AUD: 'dna-services'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
     metrics:
       enabled: true
       port: 8081
-      path: "/metrics"
+      path: '/metrics'
       prometheus:
         scrape: true
         annotations:
-          prometheus.io/scrape: "true"
-          prometheus.io/port: "8081"
-          prometheus.io/path: "/metrics"
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
 
   # Processing Service
   processing:
     enabled: true
     image:
-      repository: "ghcr.io/mertnar/dna-platform/processing"
-      tag: "latest"
+      repository: 'processing'
+      tag: 'latest'
       pullPolicy: IfNotPresent
     replicas: 3
     service:
@@ -179,26 +179,26 @@ services:
       targetPort: 8080
     resources:
       requests:
-        memory: "128Mi"
-        cpu: "100m"
+        memory: '128Mi'
+        cpu: '100m'
       limits:
-        memory: "256Mi"
-        cpu: "200m"
+        memory: '256Mi'
+        cpu: '200m'
     env:
-      KAFKA_BROKERS: "redpanda:9092"
-      CONFIG_SERVICE_URL: "http://config:8080"
-      JAEGER_ENDPOINT: "http://jaeger:14268/api/traces"
-      PROMETHEUS_PORT: "8081"
+      KAFKA_BROKERS: 'redpanda:9092'
+      CONFIG_SERVICE_URL: 'http://config:8080'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
     metrics:
       enabled: true
       port: 8081
-      path: "/metrics"
+      path: '/metrics'
       prometheus:
         scrape: true
         annotations:
-          prometheus.io/scrape: "true"
-          prometheus.io/port: "8081"
-          prometheus.io/path: "/metrics"
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
     hpa:
       enabled: true
       minReplicas: 3
@@ -210,8 +210,8 @@ services:
   decision:
     enabled: true
     image:
-      repository: "ghcr.io/mertnar/dna-platform/decision"
-      tag: "latest"
+      repository: 'decision'
+      tag: 'latest'
       pullPolicy: IfNotPresent
     replicas: 2
     service:
@@ -220,34 +220,34 @@ services:
       targetPort: 8080
     resources:
       requests:
-        memory: "128Mi"
-        cpu: "100m"
+        memory: '128Mi'
+        cpu: '100m'
       limits:
-        memory: "256Mi"
-        cpu: "200m"
+        memory: '256Mi'
+        cpu: '200m'
     env:
-      KAFKA_BROKERS: "redpanda:9092"
-      ELASTICSEARCH_URL: "http://elasticsearch:9200"
-      CONFIG_SERVICE_URL: "http://config:8080"
-      JAEGER_ENDPOINT: "http://jaeger:14268/api/traces"
-      PROMETHEUS_PORT: "8081"
+      KAFKA_BROKERS: 'redpanda:9092'
+      ELASTICSEARCH_URL: 'http://elasticsearch:9200'
+      CONFIG_SERVICE_URL: 'http://config:8080'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
     metrics:
       enabled: true
       port: 8081
-      path: "/metrics"
+      path: '/metrics'
       prometheus:
         scrape: true
         annotations:
-          prometheus.io/scrape: "true"
-          prometheus.io/port: "8081"
-          prometheus.io/path: "/metrics"
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
 
   # Config Service
   config:
     enabled: true
     image:
-      repository: "ghcr.io/mertnar/dna-platform/config"
-      tag: "latest"
+      repository: 'config'
+      tag: 'latest'
       pullPolicy: IfNotPresent
     replicas: 1
     service:
@@ -256,47 +256,150 @@ services:
       targetPort: 8080
     resources:
       requests:
-        memory: "128Mi"
-        cpu: "100m"
+        memory: '128Mi'
+        cpu: '100m'
       limits:
-        memory: "256Mi"
-        cpu: "200m"
+        memory: '256Mi'
+        cpu: '200m'
     env:
-      MONGO_URL: "mongodb://admin:admin123@mongodb:27017/dna?authSource=admin"
-      JAEGER_ENDPOINT: "http://jaeger:14268/api/traces"
-      PROMETHEUS_PORT: "8081"
+      MONGO_URL: 'mongodb://admin:admin123@mongodb:27017/dna?authSource=admin'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
     metrics:
       enabled: true
       port: 8081
-      path: "/metrics"
+      path: '/metrics'
       prometheus:
         scrape: true
         annotations:
-          prometheus.io/scrape: "true"
-          prometheus.io/port: "8081"
-          prometheus.io/path: "/metrics"
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
+
+  # Categorization Service
+  categorization:
+    enabled: true
+    image:
+      repository: 'categorization'
+      tag: 'latest'
+      pullPolicy: IfNotPresent
+    replicas: 2
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+    resources:
+      requests:
+        memory: '128Mi'
+        cpu: '100m'
+      limits:
+        memory: '256Mi'
+        cpu: '200m'
+    env:
+      KAFKA_BROKERS: 'redpanda:9092'
+      CONFIG_SERVICE_URL: 'http://config:8080'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
+    metrics:
+      enabled: true
+      port: 8081
+      path: '/metrics'
+      prometheus:
+        scrape: true
+        annotations:
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
+
+  # Correlation Service
+  correlation:
+    enabled: true
+    image:
+      repository: 'correlation'
+      tag: 'latest'
+      pullPolicy: IfNotPresent
+    replicas: 2
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+    resources:
+      requests:
+        memory: '128Mi'
+        cpu: '100m'
+      limits:
+        memory: '256Mi'
+        cpu: '200m'
+    env:
+      KAFKA_BROKERS: 'redpanda:9092'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
+    metrics:
+      enabled: true
+      port: 8081
+      path: '/metrics'
+      prometheus:
+        scrape: true
+        annotations:
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
+
+  # Model Service
+  model:
+    enabled: true
+    image:
+      repository: 'model'
+      tag: 'latest'
+      pullPolicy: IfNotPresent
+    replicas: 2
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+    resources:
+      requests:
+        memory: '256Mi'
+        cpu: '200m'
+      limits:
+        memory: '512Mi'
+        cpu: '500m'
+    env:
+      KAFKA_BROKERS: 'redpanda:9092'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
+    metrics:
+      enabled: true
+      port: 8081
+      path: '/metrics'
+      prometheus:
+        scrape: true
+        annotations:
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
 
 # Observability Stack
 observability:
   enabled: true
-  
+
   # Prometheus
   prometheus:
     enabled: true
     image:
-      repository: "prom/prometheus"
-      tag: "v2.45.0"
+      repository: 'prom/prometheus'
+      tag: 'v2.45.0'
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
       port: 9090
     resources:
       requests:
-        memory: "256Mi"
-        cpu: "100m"
+        memory: '256Mi'
+        cpu: '100m'
       limits:
-        memory: "512Mi"
-        cpu: "200m"
+        memory: '512Mi'
+        cpu: '200m'
     persistence:
       enabled: true
       size: 10Gi
@@ -327,27 +430,27 @@ observability:
   grafana:
     enabled: true
     image:
-      repository: "grafana/grafana"
-      tag: "10.1.0"
+      repository: 'grafana/grafana'
+      tag: '10.1.0'
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
       port: 3000
     resources:
       requests:
-        memory: "128Mi"
-        cpu: "100m"
+        memory: '128Mi'
+        cpu: '100m'
       limits:
-        memory: "256Mi"
-        cpu: "200m"
+        memory: '256Mi'
+        cpu: '200m'
     persistence:
       enabled: true
       size: 1Gi
-    adminPassword: "admin123"
+    adminPassword: 'admin123'
     datasources:
       - name: Prometheus
         type: prometheus
-        url: "http://prometheus:9090"
+        url: 'http://prometheus:9090'
         access: proxy
         isDefault: true
 
@@ -355,22 +458,22 @@ observability:
   jaeger:
     enabled: true
     image:
-      repository: "jaegertracing/all-in-one"
-      tag: "1.48.0"
+      repository: 'jaegertracing/all-in-one'
+      tag: '1.48.0'
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
       port: 16686
     resources:
       requests:
-        memory: "256Mi"
-        cpu: "100m"
+        memory: '256Mi'
+        cpu: '100m'
       limits:
-        memory: "512Mi"
-        cpu: "200m"
+        memory: '512Mi'
+        cpu: '200m'
     env:
-      COLLECTOR_OTLP_ENABLED: "true"
-      SPAN_STORAGE_TYPE: "memory"
+      COLLECTOR_OTLP_ENABLED: 'true'
+      SPAN_STORAGE_TYPE: 'memory'
 
 # Security & Networking
 security:
@@ -378,10 +481,10 @@ security:
     enabled: true
     defaultDenyAll: true
     allowSameNamespace: true
-  
+
   serviceAccount:
     create: true
-    name: "dna-platform"
+    name: 'dna-platform'
     annotations: {}
 
 # Monitoring & Observability
@@ -394,7 +497,7 @@ monitoring:
 
 # Persistence
 persistence:
-  storageClass: ""
+  storageClass: ''
   accessModes:
     - ReadWriteOnce
 

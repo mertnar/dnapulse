@@ -42,7 +42,7 @@ export class ConfigManager {
   async loadConfig(): Promise<void> {
     try {
       const result = await this.configClient.load(this.configScope, this.currentEtag);
-      
+
       if (result.status === 304) {
         this.logger.debug('Config not modified, skipping reload');
         return;
@@ -54,7 +54,7 @@ export class ConfigManager {
 
       // Parse YAML config
       const config = yaml.load(result.yaml) as CategorizationConfig;
-      
+
       // Validate config
       if (!config.rules || !Array.isArray(config.rules)) {
         throw new Error('Invalid config: rules array is required');
@@ -62,20 +62,22 @@ export class ConfigManager {
 
       // Load rules into engine
       this.rulesEngine.loadRules(config);
-      
+
       // Update metrics
       activeRules.set(this.rulesEngine.getRuleCount());
       configReloads.inc();
-      
+
       // Update etag
       this.currentEtag = result.etag;
-      
-      this.logger.info({
-        rulesLoaded: this.rulesEngine.getRuleCount(),
-        version: config.metadata?.version,
-        updatedAt: config.metadata?.updated_at
-      }, 'Config reloaded successfully');
 
+      this.logger.info(
+        {
+          rulesLoaded: this.rulesEngine.getRuleCount(),
+          version: config.metadata?.version,
+          updatedAt: config.metadata?.updated_at,
+        },
+        'Config reloaded successfully'
+      );
     } catch (error) {
       this.logger.error({ error }, 'Failed to load config');
       throw error;
@@ -89,18 +91,15 @@ export class ConfigManager {
     }
 
     this.logger.info('Starting config hot reload via SSE');
-    
-    this.sseConnection = this.configClient.watchSSE(
-      this.sseUrl,
-      (scope: string, etag: string) => {
-        if (scope === this.configScope && etag !== this.currentEtag) {
-          this.logger.info({ scope, etag }, 'Config update detected, reloading...');
-          this.loadConfig().catch(error => {
-            this.logger.error({ error }, 'Failed to reload config on update');
-          });
-        }
+
+    this.sseConnection = this.configClient.watchSSE(this.sseUrl, (scope: string, etag: string) => {
+      if (scope === this.configScope && etag !== this.currentEtag) {
+        this.logger.info({ scope, etag }, 'Config update detected, reloading...');
+        this.loadConfig().catch((error) => {
+          this.logger.error({ error }, 'Failed to reload config on update');
+        });
       }
-    );
+    });
 
     if (this.sseConnection) {
       this.sseConnection.onopen = () => {

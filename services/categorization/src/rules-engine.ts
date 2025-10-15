@@ -11,7 +11,7 @@ export class RulesEngine {
 
   loadRules(config: CategorizationConfig): void {
     this.rules = config.rules
-      .filter(rule => rule.enabled)
+      .filter((rule) => rule.enabled)
       .sort((a, b) => a.priority - b.priority); // Lower priority = higher precedence
   }
 
@@ -23,7 +23,7 @@ export class RulesEngine {
       try {
         const condition = this.parser.parse(rule.condition);
         const result = condition.evaluate(context as any);
-        
+
         if (result === true || result === 1) {
           labels.push(...rule.labels);
         }
@@ -41,7 +41,7 @@ export class RulesEngine {
       type: event.type,
       payload: event.metric || event.log || {},
       attributes: event.attributes,
-      ts: event.ts
+      ts: event.ts,
     };
   }
 

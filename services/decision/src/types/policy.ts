@@ -47,4 +47,3 @@ export interface PolicyEvaluationResult {
   error?: string;
   executionTime?: number;
 }
-

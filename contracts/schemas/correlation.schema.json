@@ -14,14 +14,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": [
-          "host",
-          "environment", 
-          "severity",
-          "source",
-          "event_type",
-          "metric_name"
-        ]
+        "enum": ["host", "environment", "severity", "source", "event_type", "metric_name"]
       },
       "minItems": 1,
       "description": "Fields to group events by for correlation"

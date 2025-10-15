@@ -12,7 +12,7 @@ describe('ExpressionEvaluator', () => {
     it('should evaluate simple equality expressions', () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: { name: 'cpu_load', value: 0.95 }
+        payload: { name: 'cpu_load', value: 0.95 },
       };
 
       const result = evaluator.evaluate('type=="metric"', context);
@@ -22,7 +22,7 @@ describe('ExpressionEvaluator', () => {
     it('should evaluate complex expressions with AND operator', () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: { name: 'cpu_load', value: 0.95 }
+        payload: { name: 'cpu_load', value: 0.95 },
       };
 
       const result = evaluator.evaluate(
@@ -35,20 +35,17 @@ describe('ExpressionEvaluator', () => {
     it('should evaluate expressions with OR operator', () => {
       const context: EvaluationContext = {
         type: 'log',
-        payload: { level: 'error' }
+        payload: { level: 'error' },
       };
 
-      const result = evaluator.evaluate(
-        'type=="metric" || payload.level=="error"',
-        context
-      );
+      const result = evaluator.evaluate('type=="metric" || payload.level=="error"', context);
       expect(result).toBe(true);
     });
 
     it('should handle numeric comparisons', () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: { value: 75 }
+        payload: { value: 75 },
       };
 
       expect(evaluator.evaluate('payload.value > 50', context)).toBe(true);
@@ -62,7 +59,7 @@ describe('ExpressionEvaluator', () => {
       const context: EvaluationContext = {
         type: 'metric',
         payload: {},
-        attributes: { severity: 'critical' }
+        attributes: { severity: 'critical' },
       };
 
       const result = evaluator.evaluate('attributes.severity=="critical"', context);
@@ -72,7 +69,7 @@ describe('ExpressionEvaluator', () => {
     it('should throw error on invalid expression', () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: {}
+        payload: {},
       };
 
       expect(() => {
@@ -83,7 +80,7 @@ describe('ExpressionEvaluator', () => {
     it('should handle missing properties gracefully', () => {
       const context: EvaluationContext = {
         type: 'metric',
-        payload: {}
+        payload: {},
       };
 
       // Should not throw, but return false for undefined comparisons
@@ -118,4 +115,3 @@ describe('ExpressionEvaluator', () => {
     });
   });
 });
-

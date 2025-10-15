@@ -19,14 +19,11 @@ export class ConfigClient {
   async fetchConfig(scope?: string): Promise<PolicyConfig> {
     const targetScope = scope || this.scope;
     try {
-      const response = await axios.get(
-        `${this.configServiceUrl}/v1/config/${targetScope}`,
-        {
-          headers: {
-            'Accept': 'application/x-yaml'
-          }
-        }
-      );
+      const response = await axios.get(`${this.configServiceUrl}/v1/config/${targetScope}`, {
+        headers: {
+          Accept: 'application/x-yaml',
+        },
+      });
 
       const config = yaml.load(response.data) as PolicyConfig;
       return config;
@@ -44,7 +41,7 @@ export class ConfigClient {
     onError?: (error: Error) => void
   ): () => void {
     const streamUrl = `${this.configServiceUrl}/v1/stream`;
-    
+
     this.eventSource = new EventSource(streamUrl);
 
     // Handle connection
@@ -56,7 +53,7 @@ export class ConfigClient {
     this.eventSource.addEventListener('config:update', async (event: any) => {
       try {
         const data = JSON.parse(event.data);
-        
+
         // Only reload if it's our scope
         if (data.scope === this.scope) {
           console.log(`Config update detected for scope: ${this.scope}, etag: ${data.etag}`);
@@ -103,4 +100,3 @@ export class ConfigClient {
     }
   }
 }
-

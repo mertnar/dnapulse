@@ -1,17 +1,17 @@
 # Correlation Configuration
-window_seconds: 300  # 5 minutes window
+window_seconds: 300 # 5 minutes window
 group_by:
-  - "host"
-  - "environment"
-  - "severity"
+  - 'host'
+  - 'environment'
+  - 'severity'
 
 emit_if:
-  - "count >= 3"      # Emit when 3 or more events in window
-  - "count >= 10"     # Emit when 10 or more events in window
-  - "count >= 5"      # Emit when 5 or more events in window
+  - 'count >= 3' # Emit when 3 or more events in window
+  - 'count >= 10' # Emit when 10 or more events in window
+  - 'count >= 5' # Emit when 5 or more events in window
 
 metadata:
-  version: "1.0.0"
-  updated_at: "2025-10-14T00:00:00Z"
-  updated_by: "platform-admin"
-  description: "Correlation rules for grouping related events and detecting patterns"
+  version: '1.0.0'
+  updated_at: '2025-10-14T00:00:00Z'
+  updated_by: 'platform-admin'
+  description: 'Correlation rules for grouping related events and detecting patterns'

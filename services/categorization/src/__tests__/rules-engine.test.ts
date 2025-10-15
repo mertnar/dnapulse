@@ -18,7 +18,7 @@ describe('RulesEngine', () => {
             condition: 'type === "metric"',
             labels: ['high-priority'],
             priority: 1,
-            enabled: true
+            enabled: true,
           },
           {
             id: 'rule2',
@@ -26,14 +26,14 @@ describe('RulesEngine', () => {
             condition: 'type === "log"',
             labels: ['low-priority'],
             priority: 10,
-            enabled: true
-          }
+            enabled: true,
+          },
         ],
         metadata: {
           version: '1.0.0',
           updated_at: '2025-01-01T00:00:00Z',
-          updated_by: 'test'
-        }
+          updated_by: 'test',
+        },
       };
 
       rulesEngine.loadRules(config);
@@ -53,7 +53,7 @@ describe('RulesEngine', () => {
             condition: 'type === "metric"',
             labels: ['enabled'],
             priority: 1,
-            enabled: true
+            enabled: true,
           },
           {
             id: 'rule2',
@@ -61,14 +61,14 @@ describe('RulesEngine', () => {
             condition: 'type === "log"',
             labels: ['disabled'],
             priority: 2,
-            enabled: false
-          }
+            enabled: false,
+          },
         ],
         metadata: {
           version: '1.0.0',
           updated_at: '2025-01-01T00:00:00Z',
-          updated_by: 'test'
-        }
+          updated_by: 'test',
+        },
       };
 
       rulesEngine.loadRules(config);
@@ -89,7 +89,7 @@ describe('RulesEngine', () => {
             condition: 'payload.name === "cpu_usage" && payload.value > 80',
             labels: ['high-cpu', 'alert'],
             priority: 1,
-            enabled: true
+            enabled: true,
           },
           {
             id: 'memory-rule',
@@ -97,7 +97,7 @@ describe('RulesEngine', () => {
             condition: 'payload.name === "memory_usage" && payload.value > 90',
             labels: ['high-memory', 'critical'],
             priority: 2,
-            enabled: true
+            enabled: true,
           },
           {
             id: 'error-rule',
@@ -105,14 +105,14 @@ describe('RulesEngine', () => {
             condition: 'type === "log" && payload.level === "error"',
             labels: ['error', 'alert'],
             priority: 3,
-            enabled: true
-          }
+            enabled: true,
+          },
         ],
         metadata: {
           version: '1.0.0',
           updated_at: '2025-01-01T00:00:00Z',
-          updated_by: 'test'
-        }
+          updated_by: 'test',
+        },
       };
 
       rulesEngine.loadRules(config);
@@ -126,13 +126,13 @@ describe('RulesEngine', () => {
         ts: '2025-01-01T00:00:00Z',
         attributes: {
           host: 'server1',
-          region: 'us-east-1'
+          region: 'us-east-1',
         },
         metric: {
           name: 'cpu_usage',
           value: 85.5,
-          unit: 'percent'
-        }
+          unit: 'percent',
+        },
       };
 
       const labels = rulesEngine.evaluateEvent(event);
@@ -151,12 +151,12 @@ describe('RulesEngine', () => {
         ts: '2025-01-01T00:00:00Z',
         attributes: {
           service: 'web-app',
-          version: '1.0.0'
+          version: '1.0.0',
         },
         log: {
           message: 'Database connection failed',
-          level: 'error'
-        }
+          level: 'error',
+        },
       };
 
       const labels = rulesEngine.evaluateEvent(event);
@@ -177,8 +177,8 @@ describe('RulesEngine', () => {
         metric: {
           name: 'disk_usage',
           value: 50.0,
-          unit: 'percent'
-        }
+          unit: 'percent',
+        },
       };
 
       const labels = rulesEngine.evaluateEvent(event);
@@ -196,8 +196,8 @@ describe('RulesEngine', () => {
         metric: {
           name: 'cpu_usage',
           value: 95.0,
-          unit: 'percent'
-        }
+          unit: 'percent',
+        },
       };
 
       const labels = rulesEngine.evaluateEvent(event);
@@ -205,7 +205,7 @@ describe('RulesEngine', () => {
       expect(labels).toContain('high-cpu');
       expect(labels).toContain('alert');
       // Should not have duplicates
-      expect(labels.filter(label => label === 'alert')).toHaveLength(1);
+      expect(labels.filter((label) => label === 'alert')).toHaveLength(1);
     });
 
     it('should handle invalid condition gracefully', () => {
@@ -217,7 +217,7 @@ describe('RulesEngine', () => {
             condition: 'invalid syntax &&',
             labels: ['invalid'],
             priority: 1,
-            enabled: true
+            enabled: true,
           },
           {
             id: 'valid-rule',
@@ -225,14 +225,14 @@ describe('RulesEngine', () => {
             condition: 'type === "metric"',
             labels: ['valid'],
             priority: 2,
-            enabled: true
-          }
+            enabled: true,
+          },
         ],
         metadata: {
           version: '1.0.0',
           updated_at: '2025-01-01T00:00:00Z',
-          updated_by: 'test'
-        }
+          updated_by: 'test',
+        },
       };
 
       rulesEngine.loadRules(config);
@@ -246,8 +246,8 @@ describe('RulesEngine', () => {
         metric: {
           name: 'cpu_usage',
           value: 85.0,
-          unit: 'percent'
-        }
+          unit: 'percent',
+        },
       };
 
       const labels = rulesEngine.evaluateEvent(event);
@@ -267,13 +267,13 @@ describe('RulesEngine', () => {
         ts: '2025-01-01T00:00:00Z',
         attributes: {
           host: 'server1',
-          region: 'us-east-1'
+          region: 'us-east-1',
         },
         metric: {
           name: 'cpu_usage',
           value: 85.0,
-          unit: 'percent'
-        }
+          unit: 'percent',
+        },
       };
 
       const config: CategorizationConfig = {
@@ -281,17 +281,18 @@ describe('RulesEngine', () => {
           {
             id: 'context-test',
             name: 'Context Test',
-            condition: 'attributes.host === "server1" && payload.name === "cpu_usage" && type === "metric"',
+            condition:
+              'attributes.host === "server1" && payload.name === "cpu_usage" && type === "metric"',
             labels: ['context-match'],
             priority: 1,
-            enabled: true
-          }
+            enabled: true,
+          },
         ],
         metadata: {
           version: '1.0.0',
           updated_at: '2025-01-01T00:00:00Z',
-          updated_by: 'test'
-        }
+          updated_by: 'test',
+        },
       };
 
       rulesEngine.loadRules(config);
@@ -308,12 +309,12 @@ describe('RulesEngine', () => {
         ts: '2025-01-01T00:00:00Z',
         attributes: {
           service: 'web-app',
-          version: '1.0.0'
+          version: '1.0.0',
         },
         log: {
           message: 'User login successful',
-          level: 'info'
-        }
+          level: 'info',
+        },
       };
 
       const config: CategorizationConfig = {
@@ -321,17 +322,18 @@ describe('RulesEngine', () => {
           {
             id: 'log-context-test',
             name: 'Log Context Test',
-            condition: 'attributes.service === "web-app" && payload.level === "info" && type === "log"',
+            condition:
+              'attributes.service === "web-app" && payload.level === "info" && type === "log"',
             labels: ['log-context-match'],
             priority: 1,
-            enabled: true
-          }
+            enabled: true,
+          },
         ],
         metadata: {
           version: '1.0.0',
           updated_at: '2025-01-01T00:00:00Z',
-          updated_by: 'test'
-        }
+          updated_by: 'test',
+        },
       };
 
       rulesEngine.loadRules(config);

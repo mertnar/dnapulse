@@ -1,10 +1,10 @@
 # Ingestion Service Configuration
 allowed_sources:
-  - "sensor-*"
-  - "api-*"
-  - "webhook-*"
-  - "test"
+  - 'sensor-*'
+  - 'api-*'
+  - 'webhook-*'
+  - 'test'
 
-max_body_kb: 2048  # 2MB limit
+max_body_kb: 2048 # 2MB limit
 
-rate_limit_rps: 100  # 100 requests per second
+rate_limit_rps: 100 # 100 requests per second

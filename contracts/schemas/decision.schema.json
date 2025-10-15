@@ -34,7 +34,18 @@
                 },
                 "operator": {
                   "type": "string",
-                  "enum": ["eq", "ne", "gt", "lt", "gte", "lte", "contains", "regex", "in", "not_in"],
+                  "enum": [
+                    "eq",
+                    "ne",
+                    "gt",
+                    "lt",
+                    "gte",
+                    "lte",
+                    "contains",
+                    "regex",
+                    "in",
+                    "not_in"
+                  ],
                   "description": "Comparison operator"
                 },
                 "value": {
@@ -58,7 +69,14 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "enum": ["create_alert", "send_notification", "escalate", "suppress", "enrich", "route"],
+                  "enum": [
+                    "create_alert",
+                    "send_notification",
+                    "escalate",
+                    "suppress",
+                    "enrich",
+                    "route"
+                  ],
                   "description": "Action type"
                 },
                 "parameters": {

@@ -10,14 +10,17 @@ import { EvaluationContext } from './types/policy';
 
 const logger = pino({
   level: process.env['LOG_LEVEL'] || 'info',
-  transport: process.env['NODE_ENV'] === 'development' ? {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: 'HH:MM:ss Z',
-      ignore: 'pid,hostname'
-    }
-  } : undefined
+  transport:
+    process.env['NODE_ENV'] === 'development'
+      ? {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: 'HH:MM:ss Z',
+            ignore: 'pid,hostname',
+          },
+        }
+      : undefined,
 });
 
 // Environment configuration
@@ -39,8 +42,8 @@ const configClient = new ConfigClient(CONFIG_SERVICE_URL, CONFIG_SCOPE);
 // Initialize Fastify for HTTP endpoints
 const fastify = Fastify({
   logger: {
-    level: process.env['LOG_LEVEL'] || 'info'
-  }
+    level: process.env['LOG_LEVEL'] || 'info',
+  },
 });
 
 // Policy debug endpoint (guarded by DEBUG=1)
@@ -48,13 +51,13 @@ fastify.get('/policy/debug', async (_request, _reply) => {
   if (process.env['DEBUG'] !== '1') {
     return _reply.status(403).send({ error: 'Debug mode not enabled' });
   }
-  
+
   return {
     policies: policyEngine.getPolicies(),
     stats: policyEngine.getStats(),
     config_scope: CONFIG_SCOPE,
     config_url: CONFIG_SERVICE_URL,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 });
 
@@ -65,7 +68,7 @@ fastify.get('/health', async (_request, _reply) => {
     service: 'decision',
     policies: policyEngine.getPolicies().length,
     plugins: pluginRegistry.list(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 });
 
@@ -73,7 +76,7 @@ fastify.get('/health', async (_request, _reply) => {
 fastify.get('/metrics', async (_request, _reply) => {
   return {
     policies_loaded: policyEngine.getPolicies().length,
-    plugins_registered: pluginRegistry.list().length
+    plugins_registered: pluginRegistry.list().length,
   };
 });
 
@@ -133,20 +136,23 @@ async function processMessage(payload: EachMessagePayload) {
       type: event.type || 'unknown',
       payload: event.metric || event.log || event.text || event.imageRef || event.payload || {},
       attributes: event.attributes || {},
-      ts: event.ts || new Date().toISOString()
+      ts: event.ts || new Date().toISOString(),
     };
 
     // Evaluate policies
     const results = await policyEngine.evaluate(context);
-    
+
     // Log evaluation results
-    const matchedPolicies = results.filter(r => r.matched);
+    const matchedPolicies = results.filter((r) => r.matched);
     if (matchedPolicies.length > 0) {
-      logger.info({
-        event_id: event.eventId || event.event_id,
-        matched_policies: matchedPolicies.map(r => r.policyId),
-        actions_count: matchedPolicies.reduce((sum, r) => sum + (r.actions?.length || 0), 0)
-      }, 'Policies matched');
+      logger.info(
+        {
+          event_id: event.eventId || event.event_id,
+          matched_policies: matchedPolicies.map((r) => r.policyId),
+          actions_count: matchedPolicies.reduce((sum, r) => sum + (r.actions?.length || 0), 0),
+        },
+        'Policies matched'
+      );
     }
   } catch (error) {
     logger.error(`Error processing message: ${error}`);
@@ -170,7 +176,7 @@ async function main() {
     if (KAFKA_BROKERS[0] !== 'localhost:9092') {
       const kafka = new Kafka({
         clientId: KAFKA_CLIENT_ID,
-        brokers: KAFKA_BROKERS
+        brokers: KAFKA_BROKERS,
       });
 
       const consumer = kafka.consumer({ groupId: KAFKA_GROUP_ID });
@@ -182,7 +188,7 @@ async function main() {
       logger.info(`Subscribed to topic: ${INPUT_TOPIC}`);
 
       await consumer.run({
-        eachMessage: processMessage
+        eachMessage: processMessage,
       });
 
       logger.info('Decision service started successfully with Kafka');

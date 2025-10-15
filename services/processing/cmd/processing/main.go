@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -23,6 +24,7 @@ func main() {
 	groupID := getEnv("KAFKA_GROUP_ID", "processing-service")
 	configURL := getEnv("CONFIG_URL", "http://config:8080")
 	configScope := getEnv("CONFIG_SCOPE", "processing")
+	httpPort := getEnv("HTTP_PORT", "8080")
 
 	// Initialize rule engine
 	ruleEngine := rules.NewRuleEngine(configURL, configScope)
@@ -42,7 +44,31 @@ func main() {
 	log.Printf("Consumer group: %s", groupID)
 	log.Printf("Config URL: %s", configURL)
 	log.Printf("Config scope: %s", configScope)
+	log.Printf("HTTP port: %s", httpPort)
 	log.Printf("Format: protobuf")
+
+	// Start HTTP server
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("# Processing service metrics\nprocessing_events_processed_total 0\n"))
+	})
+
+	server := &http.Server{
+		Addr:    ":" + httpPort,
+		Handler: mux,
+	}
+
+	go func() {
+		log.Printf("HTTP server starting on port %s", httpPort)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
 
 	// Create Kafka reader (consumer)
 	reader := kafka.NewReader(kafka.ReaderConfig{
@@ -85,6 +111,13 @@ func main() {
 		<-sigChan
 		log.Println("Shutdown signal received, stopping...")
 		cancel()
+
+		// Shutdown HTTP server
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
 	}()
 
 	log.Println("Processing service ready, waiting for messages...")

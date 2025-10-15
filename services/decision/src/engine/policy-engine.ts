@@ -4,7 +4,7 @@ import {
   PolicyConfig,
   PolicyAlert,
   EvaluationContext,
-  PolicyEvaluationResult
+  PolicyEvaluationResult,
 } from '../types/policy';
 
 export class PolicyEngine {
@@ -23,7 +23,7 @@ export class PolicyEngine {
    */
   loadPolicies(config: PolicyConfig): void {
     // Validate policies
-    const validPolicies = config.alerts.filter(policy => {
+    const validPolicies = config.alerts.filter((policy) => {
       const isValid = this.evaluator.validate(policy.when);
       if (!isValid) {
         console.warn(`Invalid policy expression: ${policy.id} - ${policy.when}`);
@@ -33,7 +33,7 @@ export class PolicyEngine {
 
     this.policies = validPolicies;
     this.settings = config.settings || {};
-    
+
     console.log(`Loaded ${this.policies.length} policies`);
   }
 
@@ -46,7 +46,7 @@ export class PolicyEngine {
 
     for (const policy of this.policies) {
       const startTime = Date.now();
-      
+
       try {
         // Evaluate policy condition with timeout
         const matched = await this.evaluateWithTimeout(
@@ -57,12 +57,12 @@ export class PolicyEngine {
         const result: PolicyEvaluationResult = {
           policyId: policy.id,
           matched,
-          executionTime: Date.now() - startTime
+          executionTime: Date.now() - startTime,
         };
 
         if (matched) {
           result.actions = policy.actions;
-          
+
           // Execute actions if parallel evaluation is enabled
           if (this.settings.parallel_evaluation) {
             await this.executeActions(context, policy.actions);
@@ -75,7 +75,7 @@ export class PolicyEngine {
           policyId: policy.id,
           matched: false,
           error: error instanceof Error ? error.message : 'Unknown error',
-          executionTime: Date.now() - startTime
+          executionTime: Date.now() - startTime,
         });
       }
     }
@@ -109,15 +109,12 @@ export class PolicyEngine {
   /**
    * Evaluate with timeout
    */
-  private async evaluateWithTimeout<T>(
-    fn: () => T,
-    timeoutMs: number
-  ): Promise<T> {
+  private async evaluateWithTimeout<T>(fn: () => T, timeoutMs: number): Promise<T> {
     return Promise.race([
       Promise.resolve(fn()),
       new Promise<T>((_, reject) =>
         setTimeout(() => reject(new Error('Evaluation timeout')), timeoutMs)
-      )
+      ),
     ]);
   }
 
@@ -132,7 +129,7 @@ export class PolicyEngine {
    * Get policy by ID
    */
   getPolicy(id: string): PolicyAlert | undefined {
-    return this.policies.find(p => p.id === id);
+    return this.policies.find((p) => p.id === id);
   }
 
   /**
@@ -142,8 +139,7 @@ export class PolicyEngine {
     return {
       totalPolicies: this.policies.length,
       settings: this.settings,
-      plugins: this.pluginRegistry.list()
+      plugins: this.pluginRegistry.list(),
     };
   }
 }
-

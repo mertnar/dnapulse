@@ -1,16 +1,15 @@
 # Model Configuration
-active_model: "threshold_model"
-version: "1.0.0"
+active_model: 'threshold_model'
+version: '1.0.0'
 
 params:
-  label_required: "anomaly"
+  label_required: 'anomaly'
   count_threshold: 3
   score_threshold: 0.8
   emit_normal: false
 
 metadata:
-  version: "1.0.0"
-  updated_at: "2025-10-14T00:00:00Z"
-  updated_by: "platform-admin"
-  description: "Model configuration for anomaly detection based on correlation events"
-
+  version: '1.0.0'
+  updated_at: '2025-10-14T00:00:00Z'
+  updated_by: 'platform-admin'
+  description: 'Model configuration for anomaly detection based on correlation events'

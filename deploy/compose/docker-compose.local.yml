@@ -37,6 +37,9 @@ services:
     container_name: dna-mongo
     ports:
       - '27018:27017'
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
     volumes:
       - mongo-data:/data/db
     healthcheck:
@@ -92,11 +95,11 @@ services:
   # Ingestion Service (Go)
   ingestion:
     build:
-      context: ../../services/ingestion
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: services/ingestion/Dockerfile
     container_name: dna-ingestion
     ports:
-      - '8080:8080'
+      - '8092:8080'
     environment:
       - KAFKA_BROKERS=bus:9092
       - KAFKA_TOPIC=ingestion.raw.v1
@@ -111,14 +114,107 @@ services:
   # Processing Service (Go)
   processing:
     build:
-      context: ../../services/processing
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: services/processing/Dockerfile
     container_name: dna-processing
+    ports:
+      - '8093:8080'
     environment:
       - KAFKA_BROKERS=bus:9092
       - KAFKA_INPUT_TOPIC=ingestion.raw.v1
       - KAFKA_OUTPUT_TOPIC=processing.cleaned.v1
       - KAFKA_GROUP_ID=processing-service
+      - HTTP_PORT=8080
+    depends_on:
+      bus:
+        condition: service_healthy
+    networks:
+      - dna-net
+    restart: unless-stopped
+
+  # Config Service (TypeScript)
+  config:
+    build:
+      context: ../../
+      dockerfile: services/config/Dockerfile
+    container_name: dna-config
+    ports:
+      - '8087:8080'
+    environment:
+      - MONGO_URL=mongodb://admin:admin123@mongo:27017/dna?authSource=admin
+      - NODE_ENV=development
+      - LOG_LEVEL=info
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - dna-net
+    restart: unless-stopped
+
+  # Categorization Service (TypeScript)
+  categorization:
+    build:
+      context: ../../services/categorization
+      dockerfile: Dockerfile
+    container_name: dna-categorization
+    ports:
+      - '8088:8080'
+    environment:
+      - KAFKA_BROKERS=bus:9092
+      - KAFKA_INPUT_TOPIC=processing.cleaned.v1
+      - KAFKA_OUTPUT_TOPIC=categorization.labeled.v1
+      - KAFKA_GROUP_ID=categorization-service
+      - CONFIG_URL=http://config:8080
+      - CONFIG_SCOPE=categorization
+      - CONFIG_SSE_URL=http://config:8080
+      - BUS_BROKER=bus:9092
+    depends_on:
+      bus:
+        condition: service_healthy
+      config:
+        condition: service_healthy
+    networks:
+      - dna-net
+    restart: unless-stopped
+
+  # Correlation Service (Go)
+  correlation:
+    build:
+      context: ../../
+      dockerfile: services/correlation/Dockerfile
+    container_name: dna-correlation
+    ports:
+      - '8089:8080'
+    environment:
+      - KAFKA_BROKERS=bus:9092
+      - KAFKA_INPUT_TOPIC=categorization.labeled.v1
+      - KAFKA_OUTPUT_TOPIC=correlation.grouped.v1
+      - KAFKA_GROUP_ID=correlation-service
+      - CONFIG_URL=http://config:8080
+      - CONFIG_SCOPE=correlation
+      - CONFIG_SSE_URL=http://config:8080
+      - BUS_BROKER=bus:9092
+      - PORT=8080
+    depends_on:
+      bus:
+        condition: service_healthy
+    networks:
+      - dna-net
+    restart: unless-stopped
+
+  # Model Service (Python)
+  model:
+    build:
+      context: ../../
+      dockerfile: services/model/Dockerfile
+    container_name: dna-model
+    ports:
+      - '8090:8080'
+    environment:
+      - KAFKA_BROKERS=bus:9092
+      - KAFKA_INPUT_TOPIC=correlation.grouped.v1
+      - KAFKA_OUTPUT_TOPIC=model.inference.v1
+      - KAFKA_GROUP_ID=model-service
     depends_on:
       bus:
         condition: service_healthy
@@ -129,19 +225,24 @@ services:
   # Decision Service (TypeScript)
   decision:
     build:
-      context: ../../services/decision
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: services/decision/Dockerfile
     container_name: dna-decision
+    ports:
+      - '8091:8080'
     environment:
       - KAFKA_BROKERS=bus:9092
-      - KAFKA_INPUT_TOPIC=processing.cleaned.v1
+      - KAFKA_INPUT_TOPIC=model.inference.v1
       - KAFKA_GROUP_ID=decision-service
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - ELASTICSEARCH_INDEX=alerts
+      - CONFIG_URL=http://config:8080
     depends_on:
       bus:
         condition: service_healthy
       elasticsearch:
+        condition: service_healthy
+      config:
         condition: service_healthy
     networks:
       - dna-net

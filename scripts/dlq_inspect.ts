@@ -31,7 +31,7 @@ class DLQInspector {
   constructor(options: InspectOptions) {
     this.kafka = new Kafka({
       clientId: 'dlq-inspector',
-      brokers: options.brokers
+      brokers: options.brokers,
     });
     this.options = options;
   }
@@ -41,10 +41,10 @@ class DLQInspector {
 
     for (const topic of this.options.topics) {
       console.log(`📋 Inspecting topic: ${topic}`);
-      
+
       try {
         const messages = await this.getDLQMessages(topic);
-        
+
         if (messages.length === 0) {
           console.log(`  ✅ No messages found in ${topic}\n`);
           continue;
@@ -57,7 +57,6 @@ class DLQInspector {
         } else {
           this.outputHumanReadable(topic, messages);
         }
-
       } catch (error) {
         console.error(`  ❌ Error inspecting ${topic}:`, error);
       }
@@ -68,7 +67,7 @@ class DLQInspector {
 
   private async getDLQMessages(topic: string): Promise<DLQMessage[]> {
     const consumer = this.kafka.consumer({ groupId: 'dlq-inspector' });
-    
+
     try {
       await consumer.connect();
       await consumer.subscribe({ topic, fromBeginning: false });
@@ -93,7 +92,7 @@ class DLQInspector {
       });
 
       // Wait for messages or timeout
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
 
       return messages;
     } finally {
@@ -103,7 +102,7 @@ class DLQInspector {
 
   private outputHumanReadable(topic: string, messages: DLQMessage[]): void {
     console.log(`📋 DLQ Messages for ${topic}:`);
-    console.log('=' .repeat(60));
+    console.log('='.repeat(60));
 
     messages.forEach((msg, index) => {
       console.log(`\n🔸 Message ${index + 1}:`);
@@ -113,7 +112,7 @@ class DLQInspector {
       console.log(`   Original Offset: ${msg.original_offset}`);
       console.log(`   Timestamp: ${msg.timestamp}`);
       console.log(`   Error: ${msg.error}`);
-      
+
       if (msg.trace_id) {
         console.log(`   Trace ID: ${msg.trace_id}`);
       }
@@ -123,9 +122,10 @@ class DLQInspector {
 
       console.log(`   Original Message Preview:`);
       try {
-        const originalMsg = typeof msg.original_message === 'string' 
-          ? JSON.parse(msg.original_message) 
-          : msg.original_message;
+        const originalMsg =
+          typeof msg.original_message === 'string'
+            ? JSON.parse(msg.original_message)
+            : msg.original_message;
         console.log(`     ${JSON.stringify(originalMsg, null, 2).substring(0, 200)}...`);
       } catch (error) {
         console.log(`     ${msg.original_message.toString().substring(0, 200)}...`);
@@ -140,7 +140,7 @@ class DLQInspector {
       topic,
       timestamp: new Date().toISOString(),
       message_count: messages.length,
-      messages
+      messages,
     };
 
     if (this.options.output) {
@@ -156,7 +156,7 @@ class DLQInspector {
 // CLI Interface
 async function main() {
   const args = process.argv.slice(2);
-  
+
   if (args.includes('--help') || args.includes('-h')) {
     console.log(`
 🔍 DLQ Inspector
@@ -184,7 +184,7 @@ Examples:
     process.exit(0);
   }
 
-  const brokers = args.includes('--brokers') 
+  const brokers = args.includes('--brokers')
     ? args[args.indexOf('--brokers') + 1].split(',')
     : ['localhost:9092'];
 
@@ -192,13 +192,9 @@ Examples:
     ? args[args.indexOf('--topics') + 1].split(',')
     : ['processing.deadletter.v1', 'decision.deadletter.v1'];
 
-  const limit = args.includes('--limit')
-    ? parseInt(args[args.indexOf('--limit') + 1], 10)
-    : 10;
+  const limit = args.includes('--limit') ? parseInt(args[args.indexOf('--limit') + 1], 10) : 10;
 
-  const output = args.includes('--output')
-    ? args[args.indexOf('--output') + 1]
-    : undefined;
+  const output = args.includes('--output') ? args[args.indexOf('--output') + 1] : undefined;
 
   const json = args.includes('--json');
 
@@ -207,7 +203,7 @@ Examples:
     topics: topicsArg,
     limit,
     output,
-    json
+    json,
   };
 
   const inspector = new DLQInspector(options);

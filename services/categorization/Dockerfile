@@ -3,12 +3,12 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json ./
-RUN npm ci --only=production
+COPY services/categorization/package.json services/categorization/package-lock.json ./
+RUN npm ci
 
 # Copy source code
-COPY src ./src
-COPY tsconfig.json ./
+COPY services/categorization/src ./src
+COPY services/categorization/tsconfig.json ./
 
 # Build the application
 RUN npm run build
@@ -19,7 +19,7 @@ FROM node:18-alpine AS production
 WORKDIR /app
 
 # Install production dependencies
-COPY package.json package-lock.json ./
+COPY services/categorization/package.json services/categorization/package-lock.json ./
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy built application

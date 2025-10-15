@@ -35,7 +35,7 @@ describe('ConfigClient', () => {
       const mockResponse = {
         data: 'rules:\n  - id: test-rule\n    condition: "true"',
         headers: { etag: 'test-etag' },
-        status: 200
+        status: 200,
       };
 
       mockedAxios.get.mockResolvedValue(mockResponse);
@@ -45,20 +45,20 @@ describe('ConfigClient', () => {
       expect(result).toEqual({
         yaml: 'rules:\n  - id: test-rule\n    condition: "true"',
         etag: 'test-etag',
-        status: 200
+        status: 200,
       });
 
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        'http://localhost:8080/v1/config/test-scope',
-        { headers: {}, validateStatus: expect.any(Function) }
-      );
+      expect(mockedAxios.get).toHaveBeenCalledWith('http://localhost:8080/v1/config/test-scope', {
+        headers: {},
+        validateStatus: expect.any(Function),
+      });
     });
 
     it('should load config with etag', async () => {
       const mockResponse = {
         data: 'rules:\n  - id: test-rule\n    condition: "true"',
         headers: { etag: 'new-etag' },
-        status: 200
+        status: 200,
       };
 
       mockedAxios.get.mockResolvedValue(mockResponse);
@@ -66,20 +66,17 @@ describe('ConfigClient', () => {
       const result = await configClient.load('test-scope', 'old-etag');
 
       expect(result.etag).toBe('new-etag');
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        'http://localhost:8080/v1/config/test-scope',
-        { 
-          headers: { 'If-None-Match': 'old-etag' }, 
-          validateStatus: expect.any(Function) 
-        }
-      );
+      expect(mockedAxios.get).toHaveBeenCalledWith('http://localhost:8080/v1/config/test-scope', {
+        headers: { 'If-None-Match': 'old-etag' },
+        validateStatus: expect.any(Function),
+      });
     });
 
     it('should handle 304 Not Modified response', async () => {
       const mockResponse = {
         data: '',
         headers: {},
-        status: 304
+        status: 304,
       };
 
       mockedAxios.get.mockResolvedValue(mockResponse);
@@ -94,7 +91,9 @@ describe('ConfigClient', () => {
       const error = new Error('Network error');
       mockedAxios.get.mockRejectedValue(error);
 
-      await expect(configClient.load('test-scope')).rejects.toThrow('Config load failed: Network error');
+      await expect(configClient.load('test-scope')).rejects.toThrow(
+        'Config load failed: Network error'
+      );
     });
 
     it('should handle non-axios errors', async () => {
@@ -125,7 +124,7 @@ describe('ConfigClient', () => {
 
       // Simulate message event
       const messageEvent = {
-        data: JSON.stringify({ scope: 'test-scope', etag: 'new-etag' })
+        data: JSON.stringify({ scope: 'test-scope', etag: 'new-etag' }),
       };
 
       // Trigger onmessage handler
@@ -153,7 +152,7 @@ describe('ConfigClient', () => {
 
       // Simulate message with invalid JSON
       const messageEvent = {
-        data: 'invalid json'
+        data: 'invalid json',
       };
 
       if (mockEventSource.onmessage) {

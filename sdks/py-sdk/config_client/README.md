@@ -64,11 +64,11 @@ try:
     print(f'Config: {result.yaml}')
     print(f'ETag: {result.etag}')
     print(f'Status: {result.status}')
-    
+
     # Load with conditional request
     result2 = client.load('decision', result.etag)
     print(f'Status: {result2.status}')  # 304 if not modified
-    
+
 except Exception as error:
     print(f'Error: {error}')
 ```
@@ -81,7 +81,7 @@ import time
 
 def on_update(scope: str, etag: str):
     print(f'Config updated - Scope: {scope}, ETag: {etag}')
-    
+
     # Reload config when it changes
     try:
         result = client.load(scope)

@@ -24,13 +24,13 @@ describe('ConfigClient', () => {
           {
             id: 'test',
             when: 'type=="metric"',
-            actions: []
-          }
-        ]
+            actions: [],
+          },
+        ],
       };
 
       axios.get.mockResolvedValue({
-        data: `alerts:\n  - id: test\n    when: 'type=="metric"'\n    actions: []`
+        data: `alerts:\n  - id: test\n    when: 'type=="metric"'\n    actions: []`,
       });
 
       const config = await client.fetchConfig('decision');
@@ -54,7 +54,7 @@ describe('ConfigClient', () => {
       const mockEventSource = {
         addEventListener: jest.fn(),
         close: jest.fn(),
-        onerror: null
+        onerror: null,
       };
 
       EventSource.mockImplementation(() => mockEventSource);
@@ -63,9 +63,18 @@ describe('ConfigClient', () => {
       const unsubscribe = client.subscribeToUpdates('decision', onUpdate);
 
       expect(EventSource).toHaveBeenCalledWith('http://localhost:8080/v1/stream');
-      expect(mockEventSource.addEventListener).toHaveBeenCalledWith('connected', expect.any(Function));
-      expect(mockEventSource.addEventListener).toHaveBeenCalledWith('config:update', expect.any(Function));
-      expect(mockEventSource.addEventListener).toHaveBeenCalledWith('heartbeat', expect.any(Function));
+      expect(mockEventSource.addEventListener).toHaveBeenCalledWith(
+        'connected',
+        expect.any(Function)
+      );
+      expect(mockEventSource.addEventListener).toHaveBeenCalledWith(
+        'config:update',
+        expect.any(Function)
+      );
+      expect(mockEventSource.addEventListener).toHaveBeenCalledWith(
+        'heartbeat',
+        expect.any(Function)
+      );
 
       unsubscribe();
       expect(mockEventSource.close).toHaveBeenCalled();
@@ -74,9 +83,9 @@ describe('ConfigClient', () => {
     it('should call onUpdate when config updates', async () => {
       const EventSource = require('eventsource');
       const axios = require('axios');
-      
+
       let configUpdateHandler: any;
-      
+
       const mockEventSource = {
         addEventListener: jest.fn((event, handler) => {
           if (event === 'config:update') {
@@ -84,12 +93,12 @@ describe('ConfigClient', () => {
           }
         }),
         close: jest.fn(),
-        onerror: null
+        onerror: null,
       };
 
       EventSource.mockImplementation(() => mockEventSource);
       axios.get.mockResolvedValue({
-        data: `alerts:\n  - id: updated\n    when: 'type=="metric"'\n    actions: []`
+        data: `alerts:\n  - id: updated\n    when: 'type=="metric"'\n    actions: []`,
       });
 
       const onUpdate = jest.fn();
@@ -101,16 +110,15 @@ describe('ConfigClient', () => {
           data: JSON.stringify({
             scope: 'decision',
             etag: 'new-etag',
-            timestamp: new Date().toISOString()
-          })
+            timestamp: new Date().toISOString(),
+          }),
         });
       }
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(onUpdate).toHaveBeenCalled();
     });
   });
 });
-
