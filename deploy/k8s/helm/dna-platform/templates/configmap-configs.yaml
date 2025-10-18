@@ -1,0 +1,163 @@
+{{- if .Values.services.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dna-platform.fullname" . }}-configs
+  labels:
+    {{- include "dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  categorization.yaml: |
+    # Categorization Rules Configuration
+    rules:
+      - id: 'high-cpu-usage'
+        name: 'High CPU Usage Alert'
+        condition: "type == 'metric' && payload.name == 'cpu_usage' && payload.value > 80"
+        labels: ['high-cpu', 'alert', 'performance']
+        priority: 1
+        enabled: true
+
+      - id: 'critical-cpu-usage'
+        name: 'Critical CPU Usage Alert'
+        condition: "type == 'metric' && payload.name == 'cpu_usage' && payload.value > 95"
+        labels: ['critical-cpu', 'urgent', 'performance']
+        priority: 1
+        enabled: true
+
+      - id: 'high-memory-usage'
+        name: 'High Memory Usage Alert'
+        condition: "type == 'metric' && payload.name == 'memory_usage' && payload.value > 85"
+        labels: ['high-memory', 'alert', 'performance']
+        priority: 2
+        enabled: true
+
+      - id: 'disk-space-low'
+        name: 'Low Disk Space Alert'
+        condition: "type == 'metric' && payload.name == 'disk_usage' && payload.value > 90"
+        labels: ['low-disk', 'alert', 'storage']
+        priority: 3
+        enabled: true
+
+      - id: 'error-logs'
+        name: 'Error Level Logs'
+        condition: "type == 'log' && payload.level == 'error'"
+        labels: ['error', 'alert', 'logs']
+        priority: 4
+        enabled: true
+
+      - id: 'warning-logs'
+        name: 'Warning Level Logs'
+        condition: "type == 'log' && payload.level == 'warning'"
+        labels: ['warning', 'logs']
+        priority: 5
+        enabled: true
+
+      - id: 'database-errors'
+        name: 'Database Connection Errors'
+        condition: "type == 'log' && payload.level == 'error' && payload.message.includes('database')"
+        labels: ['database-error', 'critical', 'infrastructure']
+        priority: 2
+        enabled: true
+
+      - id: 'network-errors'
+        name: 'Network Connectivity Issues'
+        condition: "type == 'log' && payload.level == 'error' && payload.message.includes('network')"
+        labels: ['network-error', 'alert', 'infrastructure']
+        priority: 3
+        enabled: true
+
+      - id: 'authentication-failures'
+        name: 'Authentication Failures'
+        condition: "type == 'log' && payload.level == 'warning' && payload.message.includes('auth')"
+        labels: ['auth-failure', 'security', 'warning']
+        priority: 4
+        enabled: true
+
+      - id: 'api-rate-limit'
+        name: 'API Rate Limit Exceeded'
+        condition: "attributes.status == '429' || payload.message.includes('rate limit')"
+        labels: ['rate-limit', 'api', 'warning']
+        priority: 5
+        enabled: true
+
+    metadata:
+      version: '1.0.0'
+      updated_at: '2025-10-14T00:00:00Z'
+      updated_by: 'platform-admin'
+
+  correlation.yaml: |
+    # Correlation Configuration
+    window_seconds: 300 # 5 minutes window
+    group_by:
+      - 'host'
+      - 'environment'
+      - 'severity'
+
+    emit_if:
+      - 'count >= 3' # Emit when 3 or more events in window
+      - 'count >= 10' # Emit when 10 or more events in window
+      - 'count >= 5' # Emit when 5 or more events in window
+
+    metadata:
+      version: '1.0.0'
+      updated_at: '2025-10-14T00:00:00Z'
+      updated_by: 'platform-admin'
+      description: 'Correlation rules for grouping related events and detecting patterns'
+
+  decision.policies.yaml: |
+    alerts:
+      - id: high_cpu
+        when: 'type=="metric" and payload.name=="cpu_load" and payload.value>0.9'
+        actions:
+          - type: 'index-es'
+            index: 'alerts'
+          - type: 'webhook'
+            url: 'http://example.local/hook'
+
+      - id: critical_memory
+        when: 'type=="metric" and payload.name=="memory_usage" and payload.value>0.95'
+        actions:
+          - type: 'index-es'
+            index: 'critical-alerts'
+          - type: 'webhook'
+            url: 'http://example.local/critical-hook'
+
+      - id: error_log
+        when: 'type=="log" and payload.level=="error"'
+        actions:
+          - type: 'index-es'
+            index: 'error-logs'
+
+    settings:
+      max_policies: 100
+      evaluation_timeout: 10000
+      batch_size: 100
+      parallel_evaluation: true
+
+    metadata:
+      version: '1.0.0'
+      updated_at: '2025-10-14T00:00:00Z'
+      updated_by: 'platform-admin'
+
+  processing.rules.yaml: |
+    # Processing Rules Configuration
+    rules:
+      - id: 'filter-low-priority'
+        name: 'Filter Low Priority Events'
+        condition: "priority > 5"
+        action: 'drop'
+        enabled: true
+
+      - id: 'enrich-with-timestamp'
+        name: 'Add Timestamp'
+        condition: "true"
+        action: 'enrich'
+        fields:
+          processed_at: 'timestamp'
+        enabled: true
+
+    metadata:
+      version: '1.0.0'
+      updated_at: '2025-10-14T00:00:00Z'
+      updated_by: 'platform-admin'
+{{- end }}

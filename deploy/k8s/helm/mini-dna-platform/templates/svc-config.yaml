@@ -1,0 +1,108 @@
+{{- if .Values.services.config.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-config
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+spec:
+  replicas: {{ .Values.services.config.replicas }}
+  selector:
+    matchLabels:
+      {{- include "mini-dna-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: config
+  template:
+    metadata:
+      labels:
+        {{- include "mini-dna-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: config
+      {{- if .Values.services.config.metrics.enabled }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.services.config.metrics.port }}"
+        prometheus.io/path: "{{ .Values.services.config.metrics.path }}"
+      {{- end }}
+    spec:
+      {{- with .Values.security.serviceAccount }}
+      serviceAccountName: {{ include "mini-dna-platform.serviceAccountName" $ }}
+      {{- end }}
+      containers:
+      - name: config
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.services.config.image.repository }}:{{ .Values.services.config.image.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.services.config.service.port }}
+          name: http
+        {{- if .Values.services.config.metrics.enabled }}
+        - containerPort: {{ .Values.services.config.metrics.port }}
+          name: metrics
+        {{- end }}
+        env:
+        - name: PORT
+          value: "8084"
+        {{- range $key, $value := .Values.services.config.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.services.config.resources | nindent 10 }}
+        volumeMounts:
+        - name: configs
+          mountPath: /app/configs
+          readOnly: true
+        - name: platform-config
+          mountPath: /app/platform-config
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.services.config.service.port }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.services.config.service.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+      volumes:
+      - name: configs
+        configMap:
+          name: {{ include "mini-dna-platform.fullname" . }}-configs
+      - name: platform-config
+        configMap:
+          name: {{ include "mini-dna-platform.fullname" . }}-platform-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: config
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+  {{- if .Values.services.config.metrics.enabled }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.services.config.metrics.port }}"
+    prometheus.io/path: "{{ .Values.services.config.metrics.path }}"
+  {{- end }}
+spec:
+  type: {{ .Values.services.config.service.type }}
+  ports:
+  - port: {{ .Values.services.config.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  {{- if .Values.services.config.metrics.enabled }}
+  - port: {{ .Values.services.config.metrics.port }}
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  {{- end }}
+  selector:
+    {{- include "mini-dna-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+{{- end }}

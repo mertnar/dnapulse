@@ -1,0 +1,74 @@
+{{- if .Values.services.correlation.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dna-platform.fullname" . }}-correlation
+  labels:
+    {{- include "dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: correlation
+spec:
+  type: {{ .Values.services.correlation.service.type }}
+  ports:
+    - port: {{ .Values.services.correlation.service.port }}
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "dna-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: correlation
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dna-platform.fullname" . }}-correlation
+  labels:
+    {{- include "dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: correlation
+spec:
+  replicas: {{ .Values.services.correlation.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "dna-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: correlation
+  template:
+    metadata:
+      labels:
+        {{- include "dna-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: correlation
+    spec:
+      containers:
+        - name: correlation
+          image: "{{ .Values.global.imageRegistry }}/{{ .Values.services.correlation.image.repository }}:{{ .Values.services.correlation.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: HTTP_PORT
+              value: "8080"
+            - name: PORT
+              value: "8080"
+            - name: CONFIG_URL
+              value: "http://config:8084"
+            - name: CONFIG_SCOPE
+              value: "correlation"
+            - name: CONFIG_SSE_URL
+              value: "http://config:8084"
+            - name: BUS_BROKER
+              value: "{{ include "dna-platform.fullname" . }}-redpanda:9092"
+          resources:
+            {{- toYaml .Values.services.correlation.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+{{- end }}

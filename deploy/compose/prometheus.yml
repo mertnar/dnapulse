@@ -1,0 +1,77 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Config Service
+  - job_name: 'config-service'
+    static_configs:
+      - targets: ['config:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Categorization Service
+  - job_name: 'categorization-service'
+    static_configs:
+      - targets: ['categorization:9093']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Ingestion Service
+  - job_name: 'ingestion-service'
+    static_configs:
+      - targets: ['ingestion:9091']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Processing Service
+  - job_name: 'processing-service'
+    static_configs:
+      - targets: ['processing:9092']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Categorization Service - DISABLED
+  # - job_name: 'categorization-service'
+  #   static_configs:
+  #     - targets: ['categorization:9093']
+  #   metrics_path: '/metrics'
+  #   scrape_interval: 15s
+  #   scrape_timeout: 10s
+
+  # MongoDB (if mongodb_exporter is available)
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['mongo:27017']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Elasticsearch (if elasticsearch_exporter is available)
+  - job_name: 'elasticsearch'
+    static_configs:
+      - targets: ['elasticsearch:9200']
+    metrics_path: '/_prometheus/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Redpanda/Kafka (if kafka_exporter is available)
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['bus:9644']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s

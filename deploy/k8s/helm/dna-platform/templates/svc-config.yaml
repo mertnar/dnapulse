@@ -45,6 +45,10 @@ spec:
         {{- end }}
         resources:
           {{- toYaml .Values.services.config.resources | nindent 10 }}
+        volumeMounts:
+        - name: configs
+          mountPath: /app/configs
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /health
@@ -59,6 +63,10 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
+      volumes:
+      - name: configs
+        configMap:
+          name: {{ include "dna-platform.fullname" . }}-configs
 ---
 apiVersion: v1
 kind: Service

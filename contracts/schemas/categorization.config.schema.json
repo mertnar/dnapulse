@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dna.local/schemas/categorization.config.schema.json",
+  "title": "DNA Platform Categorization Configuration Schema",
+  "description": "JSON Schema for categorization service configuration with pluggable labelers",
+  "type": "object",
+  "required": ["version", "cardinality", "label_kind", "pipelines"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version"
+    },
+    "cardinality": {
+      "type": "string",
+      "enum": ["one_to_one", "one_to_many", "many_to_one", "many_to_many"],
+      "description": "Label-to-item relationship cardinality"
+    },
+    "label_kind": {
+      "type": "string",
+      "description": "Label category (e.g., 'severity', 'category', 'priority')"
+    },
+    "default_label": {
+      "type": "string",
+      "description": "Default label if no pipeline produces a result"
+    },
+    "targets": {
+      "type": "object",
+      "description": "Target selection configuration",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "Expression to filter which items should be labeled"
+        },
+        "item_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["log", "metric", "event", "trace"]
+          },
+          "description": "Item types to process"
+        }
+      }
+    },
+    "pipelines": {
+      "type": "array",
+      "description": "Ordered list of labeler pipelines",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/pipeline"
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "description": "Persistence configuration",
+      "properties": {
+        "mongodb": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "collection": { "type": "string" }
+          }
+        },
+        "elasticsearch": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "index": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pipeline": {
+      "type": "object",
+      "required": ["name", "labeler"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Pipeline name"
+        },
+        "labeler": {
+          "type": "string",
+          "enum": ["rule_based", "external_db", "ml", "user"],
+          "description": "Labeler type"
+        },
+        "args": {
+          "type": "object",
+          "description": "Labeler-specific arguments"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this pipeline is active"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Pipeline priority for conflict resolution"
+        }
+      }
+    }
+  }
+}

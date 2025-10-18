@@ -1,27 +1,79 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://dna.local/schemas/processing.rules.schema.json",
+  "title": "DNA Platform Processing Rules Schema",
+  "description": "JSON Schema for rule-based event processing pipeline configuration",
   "type": "object",
+  "required": ["version", "rules"],
   "properties": {
-    "version": { "type": "integer", "minimum": 1 },
-    "normalization": {
-      "type": "object",
-      "properties": {
-        "timestamp": { "enum": ["rfc3339"] },
-        "drop_fields": { "type": "array", "items": { "type": "string" } }
-      },
-      "additionalProperties": false
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version"
     },
-    "enrichment": {
+    "rules": {
+      "type": "array",
+      "description": "Ordered list of processing rules",
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    },
+    "persist": {
       "type": "object",
+      "description": "Persistence configuration",
       "properties": {
-        "geoip": {
+        "mongo": {
           "type": "object",
-          "properties": { "field": { "type": "string" } },
-          "required": ["field"]
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "collection": { "type": "string" }
+          }
+        },
+        "elasticsearch": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "index": { "type": "string" }
+          }
         }
       }
     }
   },
-  "required": ["version"]
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique rule name"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "parse_json",
+            "normalize_fields",
+            "unit_convert",
+            "redact_mask",
+            "deduplicate",
+            "enrich_geoip",
+            "validate_schema",
+            "persist_mongo",
+            "persist_es"
+          ],
+          "description": "Rule type"
+        },
+        "args": {
+          "type": "object",
+          "description": "Rule-specific arguments"
+        },
+        "on_error": {
+          "type": "string",
+          "enum": ["skip", "dlq", "fail"],
+          "default": "fail",
+          "description": "Error handling strategy"
+        }
+      }
+    }
+  }
 }

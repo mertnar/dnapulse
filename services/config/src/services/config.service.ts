@@ -43,16 +43,18 @@ export class ConfigService {
 
       // Initialize default configs from files
       const defaultConfigs = [
+        { scope: 'platform', file: 'platform.yaml' },
         { scope: 'processing', file: 'processing.rules.yaml' },
         { scope: 'decision', file: 'decision.policies.yaml' },
         { scope: 'categorization', file: 'categorization.yaml' },
+        { scope: 'correlation', file: 'correlation.yaml' },
       ];
 
       for (const { scope, file } of defaultConfigs) {
         try {
           const fs = await import('fs');
           const path = await import('path');
-          const configPath = path.join(process.cwd(), '..', '..', 'configs', file);
+          const configPath = path.join(process.cwd(), 'configs', file);
 
           if (fs.existsSync(configPath)) {
             const yamlContent = fs.readFileSync(configPath, 'utf8');
@@ -213,6 +215,44 @@ export class ConfigService {
     } catch (error) {
       this.logger.error(`Failed to delete config for scope ${scope}: ${error}`);
       throw new Error(`Failed to delete config: ${error}`);
+    }
+  }
+
+  async getPlatformConfig(): Promise<{ services: Record<string, { enabled: boolean }> } | null> {
+    try {
+      const config = await this.getConfig('platform');
+      if (!config) {
+        return null;
+      }
+
+      const parsedConfig = yaml.load(config.yaml) as any;
+      return parsedConfig;
+    } catch (error) {
+      this.logger.error(`Failed to get platform config: ${error}`);
+      throw new Error(`Failed to get platform config: ${error}`);
+    }
+  }
+
+  async getEnabledServices(): Promise<string[]> {
+    try {
+      const platformConfig = await this.getPlatformConfig();
+      if (!platformConfig || !platformConfig.services) {
+        return [];
+      }
+
+      const enabledServices: string[] = [];
+      for (const [serviceName, serviceConfig] of Object.entries(platformConfig.services)) {
+        if (serviceConfig && typeof serviceConfig === 'object' && 'enabled' in serviceConfig) {
+          if (serviceConfig.enabled === true) {
+            enabledServices.push(serviceName);
+          }
+        }
+      }
+
+      return enabledServices;
+    } catch (error) {
+      this.logger.error(`Failed to get enabled services: ${error}`);
+      throw new Error(`Failed to get enabled services: ${error}`);
     }
   }
 }

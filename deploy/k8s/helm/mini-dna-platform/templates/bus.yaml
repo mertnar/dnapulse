@@ -1,0 +1,147 @@
+{{- if .Values.infrastructure.redpanda.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-redpanda
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redpanda
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "mini-dna-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redpanda
+  template:
+    metadata:
+      labels:
+        {{- include "mini-dna-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redpanda
+      {{- if .Values.infrastructure.redpanda.metrics.enabled }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.infrastructure.redpanda.metrics.port }}"
+        prometheus.io/path: "{{ .Values.infrastructure.redpanda.metrics.path }}"
+      {{- end }}
+    spec:
+      containers:
+      - name: redpanda
+        image: "{{ .Values.infrastructure.redpanda.image.repository }}:{{ .Values.infrastructure.redpanda.image.tag }}"
+        imagePullPolicy: {{ .Values.infrastructure.redpanda.image.pullPolicy }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          cat > /etc/redpanda/redpanda.yaml << EOF
+          redpanda:
+            data_directory: /var/lib/redpanda/data
+            node_id: 0
+            rpc_server:
+              address: 127.0.0.1
+              port: 33145
+            kafka_api:
+              - address: 0.0.0.0
+                port: 9092
+                name: internal
+            advertised_kafka_api:
+              - address: redpanda
+                port: 9092
+                name: internal
+            admin:
+              - address: 0.0.0.0
+                port: 9644
+          rpk:
+            kafka_api:
+              brokers:
+                - redpanda:9092
+          EOF
+          export REDPANDA_SYSTEM_CHECK_ENABLED=false
+          rpk redpanda start --smp 1 --memory 1Gi --reserve-memory 0M --overprovisioned --unsafe-bypass-fsync=true
+        ports:
+        - containerPort: {{ .Values.infrastructure.redpanda.service.port }}
+          name: kafka-internal
+        - containerPort: {{ .Values.infrastructure.redpanda.service.externalPort }}
+          name: kafka-external
+        {{- if .Values.infrastructure.redpanda.metrics.enabled }}
+        - containerPort: {{ .Values.infrastructure.redpanda.metrics.port }}
+          name: metrics
+        {{- end }}
+        resources:
+          {{- toYaml .Values.infrastructure.redpanda.resources | nindent 10 }}
+        volumeMounts:
+        {{- if .Values.infrastructure.redpanda.persistence.enabled }}
+        - name: data
+          mountPath: /var/lib/redpanda/data
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /v1/status/ready
+            port: 9644
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /v1/status/ready
+            port: 9644
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      {{- if .Values.infrastructure.redpanda.persistence.enabled }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "mini-dna-platform.fullname" . }}-redpanda-pvc
+      {{- end }}
+---
+{{- if .Values.infrastructure.redpanda.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-redpanda-pvc
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redpanda
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.infrastructure.redpanda.persistence.size }}
+  {{- if .Values.infrastructure.redpanda.persistence.storageClass }}
+  storageClassName: {{ .Values.infrastructure.redpanda.persistence.storageClass }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redpanda
+  {{- if .Values.infrastructure.redpanda.metrics.enabled }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.infrastructure.redpanda.metrics.port }}"
+    prometheus.io/path: "{{ .Values.infrastructure.redpanda.metrics.path }}"
+  {{- end }}
+spec:
+  type: {{ .Values.infrastructure.redpanda.service.type }}
+  ports:
+  - port: {{ .Values.infrastructure.redpanda.service.port }}
+    targetPort: kafka-internal
+    protocol: TCP
+    name: kafka-internal
+  - port: {{ .Values.infrastructure.redpanda.service.externalPort }}
+    targetPort: kafka-external
+    protocol: TCP
+    name: kafka-external
+  {{- if .Values.infrastructure.redpanda.metrics.enabled }}
+  - port: {{ .Values.infrastructure.redpanda.metrics.port }}
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  {{- end }}
+  selector:
+    {{- include "mini-dna-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redpanda
+{{- end }}

@@ -1,0 +1,87 @@
+{{- if .Values.observability.enabled }}
+{{- if .Values.observability.jaeger.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-jaeger
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "mini-dna-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: jaeger
+  template:
+    metadata:
+      labels:
+        {{- include "mini-dna-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: jaeger
+    spec:
+      serviceAccountName: {{ include "mini-dna-platform.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: jaeger
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.observability.jaeger.image.repository }}:{{ .Values.observability.jaeger.image.tag }}"
+          imagePullPolicy: {{ .Values.observability.jaeger.image.pullPolicy }}
+          ports:
+            - name: ui
+              containerPort: 16686
+              protocol: TCP
+            - name: collector-http
+              containerPort: 14268
+              protocol: TCP
+            - name: collector-grpc
+              containerPort: 14250
+              protocol: TCP
+          env:
+            {{- range $key, $value := .Values.observability.jaeger.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.observability.jaeger.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: ui
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: ui
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-jaeger
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: jaeger
+spec:
+  type: {{ .Values.observability.jaeger.service.type }}
+  ports:
+    - name: ui
+      port: 16686
+      targetPort: ui
+      protocol: TCP
+    - name: collector-http
+      port: 14268
+      targetPort: collector-http
+      protocol: TCP
+    - name: collector-grpc
+      port: 14250
+      targetPort: collector-grpc
+      protocol: TCP
+  selector:
+    {{- include "mini-dna-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: jaeger
+{{- end }}
+{{- end }}

@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "cardinality": "one_to_many",
+  "label_kind": "category",
+  "default_label": "uncategorized",
+  "targets": {
+    "selector": "type === 'metric' || type === 'log'",
+    "item_types": ["metric", "log"]
+  },
+  "pipelines": [
+    {
+      "name": "high_cpu_detector",
+      "labeler": "rule_based",
+      "enabled": true,
+      "priority": 10,
+      "args": {
+        "rules": [
+          {
+            "when": "payload.cpu_load > 0.9",
+            "label": "high_cpu",
+            "score": 0.95
+          },
+          {
+            "when": "payload.cpu_load > 0.75 && payload.cpu_load <= 0.9",
+            "label": "medium_cpu",
+            "score": 0.7
+          }
+        ]
+      }
+    },
+    {
+      "name": "app_classifier",
+      "labeler": "rule_based",
+      "enabled": true,
+      "priority": 5,
+      "args": {
+        "rules": [
+          {
+            "when": "payload.process_name && /nginx|apache/.test(payload.process_name)",
+            "label": "webserver",
+            "score": 0.9
+          },
+          {
+            "when": "payload.process_name && /postgres|mysql|mongo/.test(payload.process_name)",
+            "label": "database",
+            "score": 0.9
+          },
+          {
+            "when": "payload.process_name && /node|python|java/.test(payload.process_name)",
+            "label": "application",
+            "score": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "name": "severity_classifier",
+      "labeler": "rule_based",
+      "enabled": true,
+      "priority": 8,
+      "args": {
+        "rules": [
+          {
+            "when": "attributes.level === 'error' || attributes.level === 'critical'",
+            "label": "high_severity",
+            "score": 1.0
+          },
+          {
+            "when": "attributes.level === 'warn' || attributes.level === 'warning'",
+            "label": "medium_severity",
+            "score": 0.7
+          },
+          {
+            "when": "attributes.level === 'info' || attributes.level === 'debug'",
+            "label": "low_severity",
+            "score": 0.3
+          }
+        ]
+      }
+    }
+  ],
+  "persistence": {
+    "mongodb": {
+      "enabled": true,
+      "collection": "item_labels"
+    },
+    "elasticsearch": {
+      "enabled": false,
+      "index": "categorized-items"
+    }
+  }
+}

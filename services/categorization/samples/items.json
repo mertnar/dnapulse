@@ -1,0 +1,48 @@
+{
+  "items": [
+    {
+      "id": "evt-001",
+      "tenant_id": "tenant-1",
+      "type": "metric",
+      "ts": "2024-01-15T10:30:00Z",
+      "payload": {
+        "cpu_load": 0.95,
+        "memory_usage": 0.78,
+        "process_name": "nginx"
+      },
+      "attributes": {
+        "host": "web-server-01",
+        "level": "warn"
+      }
+    },
+    {
+      "id": "evt-002",
+      "tenant_id": "tenant-1",
+      "type": "log",
+      "ts": "2024-01-15T10:31:00Z",
+      "payload": {
+        "message": "Database connection timeout",
+        "process_name": "postgres"
+      },
+      "attributes": {
+        "host": "db-server-01",
+        "level": "error"
+      }
+    },
+    {
+      "id": "evt-003",
+      "tenant_id": "tenant-1",
+      "type": "metric",
+      "ts": "2024-01-15T10:32:00Z",
+      "payload": {
+        "cpu_load": 0.45,
+        "memory_usage": 0.62,
+        "process_name": "node"
+      },
+      "attributes": {
+        "host": "app-server-01",
+        "level": "info"
+      }
+    }
+  ]
+}

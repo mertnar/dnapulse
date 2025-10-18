@@ -1,11 +1,11 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /build
 
 # Copy go mod files
 COPY services/ingestion/go.mod services/ingestion/go.sum ./
-COPY sdks/go-sdk ./sdks/go-sdk
+COPY services/ingestion/go-sdk ./go-sdk
 RUN go mod download
 
 # Copy source code

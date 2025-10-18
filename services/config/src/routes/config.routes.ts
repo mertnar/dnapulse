@@ -179,4 +179,39 @@ export async function configRoutes(
       timer();
     }
   });
+
+  // GET /v1/config/platform - Get platform configuration and enabled services
+  fastify.get('/platform', async (_request, reply) => {
+    const timer = metricsService.startRequestTimer('platform', 'GET');
+
+    try {
+      metricsService.recordConfigRequest('platform', 'GET');
+
+      const platformConfig = await configService.getPlatformConfig();
+      const enabledServices = await configService.getEnabledServices();
+
+      if (!platformConfig) {
+        reply.code(404);
+        return {
+          error: 'Platform config not found',
+          message: 'Platform configuration has not been initialized',
+        };
+      }
+
+      return {
+        platform: platformConfig,
+        enabled_services: enabledServices,
+        total_enabled: enabledServices.length,
+      };
+    } catch (error) {
+      fastify.log.error(`Failed to get platform config: ${error}`);
+      reply.code(500);
+      return {
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      };
+    } finally {
+      timer();
+    }
+  });
 }

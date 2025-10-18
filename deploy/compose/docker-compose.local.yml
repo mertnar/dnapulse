@@ -99,11 +99,13 @@ services:
       dockerfile: services/ingestion/Dockerfile
     container_name: dna-ingestion
     ports:
-      - '8092:8080'
+      - '8092:8080' # HTTP port
+      - '9090:9090' # gRPC port
     environment:
       - KAFKA_BROKERS=bus:9092
       - KAFKA_TOPIC=ingestion.raw.v1
       - HTTP_PORT=8080
+      - GRPC_PORT=9090
     depends_on:
       bus:
         condition: service_healthy

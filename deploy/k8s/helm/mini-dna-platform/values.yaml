@@ -1,0 +1,318 @@
+# Mini DNA Platform Helm Chart Values
+# Minimal deployment with only enabled services
+
+global:
+  imageRegistry: 'dna-platform'
+  imagePullPolicy: IfNotPresent
+  namespace: 'mini-dna'
+
+# Infrastructure Components (minimal set)
+infrastructure:
+  enabled: true
+
+  # Redpanda (Kafka-compatible message bus)
+  redpanda:
+    enabled: true
+    image:
+      repository: 'redpandadata/redpanda'
+      tag: 'v22.3.11'
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 9092
+      externalPort: 19092
+    resources:
+      requests:
+        memory: '512Mi'
+        cpu: '500m'
+      limits:
+        memory: '1Gi'
+        cpu: '1'
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ''
+    metrics:
+      enabled: true
+      port: 9644
+      path: '/metrics'
+      prometheus:
+        scrape: true
+        annotations:
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '9644'
+          prometheus.io/path: '/metrics'
+
+  # MongoDB
+  mongodb:
+    enabled: true
+    image:
+      repository: 'mongo'
+      tag: '7.0'
+      pullPolicy: IfNotPresent
+    auth:
+      enabled: true
+      rootUsername: 'admin'
+      rootPassword: 'admin123'
+      database: 'dna'
+    service:
+      type: ClusterIP
+      port: 27017
+    resources:
+      requests:
+        memory: '256Mi'
+        cpu: '100m'
+      limits:
+        memory: '512Mi'
+        cpu: '250m'
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ''
+
+# DNA Platform Services - Plugin Mode
+services:
+  # Ingestion Service
+  ingestion:
+    enabled: true
+    image:
+      repository: 'ingestion'
+      tag: 'latest'
+      pullPolicy: IfNotPresent
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+    resources:
+      requests:
+        memory: '64Mi'
+        cpu: '50m'
+      limits:
+        memory: '128Mi'
+        cpu: '100m'
+    env:
+      KAFKA_BROKERS: 'redpanda:9092'
+      JWT_ISSUER: 'dna-platform'
+      JWT_AUD: 'dna-services'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
+    metrics:
+      enabled: true
+      port: 8081
+      path: '/metrics'
+      prometheus:
+        scrape: true
+        annotations:
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
+
+  # Processing Service
+  processing:
+    enabled: true
+    image:
+      repository: 'processing'
+      tag: 'latest'
+      pullPolicy: IfNotPresent
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8082
+      targetPort: 8080
+    resources:
+      requests:
+        memory: '64Mi'
+        cpu: '50m'
+      limits:
+        memory: '128Mi'
+        cpu: '100m'
+    env:
+      KAFKA_BROKERS: 'redpanda:9092'
+      CONFIG_SERVICE_URL: 'http://config:8084'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
+    metrics:
+      enabled: true
+      port: 8081
+      path: '/metrics'
+      prometheus:
+        scrape: true
+        annotations:
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
+
+  # Model Service
+  model:
+    enabled: true
+    image:
+      repository: 'model'
+      tag: 'latest'
+      pullPolicy: IfNotPresent
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8087
+      targetPort: 8080
+    resources:
+      requests:
+        memory: '128Mi'
+        cpu: '100m'
+      limits:
+        memory: '256Mi'
+        cpu: '200m'
+    env:
+      KAFKA_BROKERS: 'redpanda:9092'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
+    metrics:
+      enabled: true
+      port: 8081
+      path: '/metrics'
+      prometheus:
+        scrape: true
+        annotations:
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
+
+  # Config Service (always enabled)
+  config:
+    enabled: true
+    image:
+      repository: 'config'
+      tag: 'latest'
+      pullPolicy: IfNotPresent
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8084
+      targetPort: 8080
+    resources:
+      requests:
+        memory: '64Mi'
+        cpu: '50m'
+      limits:
+        memory: '128Mi'
+        cpu: '100m'
+    env:
+      MONGO_URL: 'mongodb://admin:admin123@mongodb:27017/dna?authSource=admin'
+      JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
+      PROMETHEUS_PORT: '8081'
+    metrics:
+      enabled: true
+      port: 8081
+      path: '/metrics'
+      prometheus:
+        scrape: true
+        annotations:
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '8081'
+          prometheus.io/path: '/metrics'
+
+  # Disabled services (for reference)
+  categorization:
+    enabled: false
+  correlation:
+    enabled: false
+  decision:
+    enabled: false
+
+# Observability Stack (minimal)
+observability:
+  enabled: true
+
+  # Prometheus
+  prometheus:
+    enabled: true
+    image:
+      repository: 'prom/prometheus'
+      tag: 'v2.45.0'
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 9090
+    resources:
+      requests:
+        memory: '128Mi'
+        cpu: '50m'
+      limits:
+        memory: '256Mi'
+        cpu: '100m'
+    persistence:
+      enabled: true
+      size: 5Gi
+    config:
+      scrape_interval: 30s
+      evaluation_interval: 30s
+      global:
+        scrape_interval: 30s
+      scrape_configs:
+        - job_name: 'mini-dna-platform'
+          kubernetes_sd_configs:
+            - role: endpoints
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+              action: keep
+              regex: true
+            - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+            - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+              action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
+              target_label: __address__
+
+  # Jaeger
+  jaeger:
+    enabled: true
+    image:
+      repository: 'jaegertracing/all-in-one'
+      tag: '1.48.0'
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 16686
+    resources:
+      requests:
+        memory: '128Mi'
+        cpu: '50m'
+      limits:
+        memory: '256Mi'
+        cpu: '100m'
+    env:
+      COLLECTOR_OTLP_ENABLED: 'true'
+      SPAN_STORAGE_TYPE: 'memory'
+
+# Security & Networking
+security:
+  networkPolicy:
+    enabled: false # Simplified for mini deployment
+    defaultDenyAll: false
+    allowSameNamespace: true
+
+  serviceAccount:
+    create: true
+    name: 'mini-dna-platform'
+    annotations: {}
+
+# Monitoring & Observability
+monitoring:
+  enabled: true
+  prometheus:
+    scrapeAnnotations: true
+  grafana:
+    enabled: false # Disabled for minimal deployment
+
+# Persistence
+persistence:
+  storageClass: ''
+  accessModes:
+    - ReadWriteOnce
+
+# RBAC
+rbac:
+  create: true

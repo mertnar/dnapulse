@@ -1,0 +1,86 @@
+.PHONY: help build test run run-dev docker-build docker-run clean lint
+
+# Variables
+SERVICE_NAME := processing
+DOCKER_IMAGE := dna-platform/$(SERVICE_NAME)
+DOCKER_TAG := latest
+
+help: ## Show this help message
+	@echo 'Usage: make [target]'
+	@echo ''
+	@echo 'Available targets:'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+
+build: ## Build the service binary
+	@echo "Building $(SERVICE_NAME)..."
+	@go build -o bin/$(SERVICE_NAME) ./cmd/$(SERVICE_NAME)
+
+test: ## Run unit tests
+	@echo "Running tests..."
+	@go test -v -race -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
+
+test-short: ## Run short tests
+	@go test -v -short ./...
+
+lint: ## Run linters
+	@echo "Running linters..."
+	@golangci-lint run ./...
+
+run: build ## Run the service (Kafka mode)
+	@echo "Running $(SERVICE_NAME) in Kafka mode..."
+	@./bin/$(SERVICE_NAME)
+
+run-dev: build ## Run the service in dev mode (HTTP only)
+	@echo "Running $(SERVICE_NAME) in dev mode..."
+	@export KAFKA_BROKERS=localhost:9092 && \
+	 export CONFIG_URL=http://localhost:8084 && \
+	 export HTTP_PORT=8080 && \
+	 export SCHEMA_PATH=../../contracts/schemas/processing.rules.schema.json && \
+	 ./bin/$(SERVICE_NAME)
+
+dev-process: ## Test dev endpoint with sample event
+	@echo "Sending test event to dev endpoint..."
+	@curl -X POST http://localhost:8080/v1/process \
+		-H "Content-Type: application/json" \
+		-d @dev.pipeline.json
+
+docker-build: ## Build Docker image
+	@echo "Building Docker image $(DOCKER_IMAGE):$(DOCKER_TAG)..."
+	@docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) -f Dockerfile.new .
+
+docker-run: ## Run Docker container
+	@echo "Running Docker container..."
+	@docker run --rm \
+		-p 8080:8080 \
+		-e KAFKA_BROKERS=host.docker.internal:9092 \
+		-e CONFIG_URL=http://host.docker.internal:8084 \
+		-e HTTP_PORT=8080 \
+		$(DOCKER_IMAGE):$(DOCKER_TAG)
+
+clean: ## Clean build artifacts
+	@echo "Cleaning..."
+	@rm -rf bin/
+	@rm -f coverage.out coverage.html
+	@go clean
+
+deps: ## Download dependencies
+	@echo "Downloading dependencies..."
+	@go mod download
+	@go mod tidy
+
+fmt: ## Format code
+	@echo "Formatting code..."
+	@go fmt ./...
+
+vet: ## Run go vet
+	@echo "Running go vet..."
+	@go vet ./...
+
+generate: ## Generate code (if needed)
+	@echo "Generating code..."
+	@go generate ./...
+
+.DEFAULT_GOAL := help
+

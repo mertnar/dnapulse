@@ -1,11 +1,11 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /build
 
 # Copy go mod files
 COPY services/processing/go.mod services/processing/go.sum ./
-COPY sdks/go-sdk ./sdks/go-sdk
+COPY sdks/go-sdk ./../../sdks/go-sdk
 RUN go mod download
 
 # Copy source code

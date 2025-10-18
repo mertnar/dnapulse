@@ -30,7 +30,7 @@ message LogBody {
   string message = 2;
 }
 
-message TextBody { string text = 1; }
+message TextBody { string content = 1; }
 message ImageRef { string uri = 1; } // s3://..., file://..., http...
 
 message Event {

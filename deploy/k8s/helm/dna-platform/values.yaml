@@ -12,10 +12,10 @@ infrastructure:
 
   # Redpanda (Kafka-compatible message bus)
   redpanda:
-    enabled: true
+    enabled: false
     image:
       repository: 'redpandadata/redpanda'
-      tag: 'v24.2.4'
+      tag: 'v22.3.11'
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
@@ -23,14 +23,14 @@ infrastructure:
       externalPort: 19092
     resources:
       requests:
-        memory: '512Mi'
-        cpu: '250m'
-      limits:
         memory: '1Gi'
-        cpu: '500m'
+        cpu: '1'
+      limits:
+        memory: '2Gi'
+        cpu: '2'
     persistence:
       enabled: true
-      size: 10Gi
+      size: 20Gi
       storageClass: ''
     metrics:
       enabled: true
@@ -175,7 +175,7 @@ services:
     replicas: 3
     service:
       type: ClusterIP
-      port: 8080
+      port: 8082
       targetPort: 8080
     resources:
       requests:
@@ -186,7 +186,7 @@ services:
         cpu: '200m'
     env:
       KAFKA_BROKERS: 'redpanda:9092'
-      CONFIG_SERVICE_URL: 'http://config:8080'
+      CONFIG_SERVICE_URL: 'http://config:8084'
       JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
       PROMETHEUS_PORT: '8081'
     metrics:
@@ -216,7 +216,7 @@ services:
     replicas: 2
     service:
       type: ClusterIP
-      port: 8080
+      port: 8083
       targetPort: 8080
     resources:
       requests:
@@ -228,7 +228,7 @@ services:
     env:
       KAFKA_BROKERS: 'redpanda:9092'
       ELASTICSEARCH_URL: 'http://elasticsearch:9200'
-      CONFIG_SERVICE_URL: 'http://config:8080'
+      CONFIG_SERVICE_URL: 'http://config:8084'
       JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
       PROMETHEUS_PORT: '8081'
     metrics:
@@ -252,7 +252,7 @@ services:
     replicas: 1
     service:
       type: ClusterIP
-      port: 8080
+      port: 8084
       targetPort: 8080
     resources:
       requests:
@@ -286,7 +286,7 @@ services:
     replicas: 2
     service:
       type: ClusterIP
-      port: 8080
+      port: 8085
       targetPort: 8080
     resources:
       requests:
@@ -297,7 +297,7 @@ services:
         cpu: '200m'
     env:
       KAFKA_BROKERS: 'redpanda:9092'
-      CONFIG_SERVICE_URL: 'http://config:8080'
+      CONFIG_SERVICE_URL: 'http://config:8084'
       JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
       PROMETHEUS_PORT: '8081'
     metrics:
@@ -321,7 +321,7 @@ services:
     replicas: 2
     service:
       type: ClusterIP
-      port: 8080
+      port: 8086
       targetPort: 8080
     resources:
       requests:
@@ -332,6 +332,7 @@ services:
         cpu: '200m'
     env:
       KAFKA_BROKERS: 'redpanda:9092'
+      CONFIG_SERVICE_URL: 'http://config:8084'
       JAEGER_ENDPOINT: 'http://jaeger:14268/api/traces'
       PROMETHEUS_PORT: '8081'
     metrics:
@@ -355,7 +356,7 @@ services:
     replicas: 2
     service:
       type: ClusterIP
-      port: 8080
+      port: 8087
       targetPort: 8080
     resources:
       requests:

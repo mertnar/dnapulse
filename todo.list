@@ -1,4 +1,3 @@
-Test Coverage: Jest test dosyaları eksik - unit testler eklenebilir
 Schema Issue: processing.rules.schema.json dosyasında JSON Schema draft 2020-12 referansı sorunu var
 Authentication: Production için MongoDB authentication aktif edilmeli
 
@@ -8,3 +7,26 @@ Kafka/Redpanda: Ingestion servisi için message bus gerekli
 Elasticsearch: Decision servisi için search engine gerekli
 Rate Limiting: Production için güvenlik ayarları
 Source Filtering: Güvenlik politikaları
+
+
+Fikirler:
+- Processing servisi ingestion'dan veriyi alınca nasıl işleyecek?
+    - parsing -> veri yapısı schema olarak bellidir. Veri parse edilerek db/elasticsearch'e kayıt edilir
+    - normalization ->
+    - ...
+
+    Rules dir açılır. Strategy pattern ya da uygun bir pattern ile tüm kurallar tanımlanır.
+    Processing servisi içinde rules array olur.
+    Hangi rule'lar olacağı ve hangi sıra ile çalışacağı processing.rules.schema.json'da yazsın.
+    rule'lar için girdi veya çıktı veri yapısının schema'sı belirlenir. Veri işlendikten sonra db/elasticsearch kayıt edilir (kullanıcı girişi ile schema'da tanımlanmalıdır)
+
+    Processing verinin kullanıcı ya da 3. şahıs olmadan işlenmesi şeklindedir.
+
+- Categorization'da ise kullanıcı bilgisi ya da 3. şahıs uzman bilgisi (ya da external db) ile verinin etiketlenmesidir.
+- Etiketlenme şekli ve etkilenen veri türü config'de tanımlanacaktır
+    - hangi veri tipi
+    - etiketlenme türü -> (0)1to(0)1, (0)1to(0)N, (0)Nto(0)1, (0)Nto(0)N : her bir veri için bir etiket, bir veriye birden fazla etiket, birden fazla veri için bir etiket, çok veriyi çok veri etiketleyebilir.
+    - Etiket Türünün adı (mesela Kullanılan uygulamalar için kategori,  )
+    - Default Etiket (her veri için en az bir tane etiket gerekiyorsa zorunlu alan)
+- api servis ile etiketleme işlemleri yapılabilmeli
+- Kullanıcı tarafından Categorization servisi nasıl implement edilecek? Kullanıcının implementasyonları categorization bileşenini framework içinde tutmak için ne tür zorunluluklar olacak?

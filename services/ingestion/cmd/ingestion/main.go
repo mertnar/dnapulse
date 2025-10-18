@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,10 +14,18 @@ import (
 	"syscall"
 	"time"
 
+	ingestionv1 "github.com/dnasol/dna-platform/sdks/go-sdk/gen/dna/ingestion/v1"
 	"github.com/dnasol/dna-platform/services/ingestion/pkg/config"
+	"github.com/dnasol/dna-platform/services/ingestion/pkg/elasticsearch"
+	"github.com/dnasol/dna-platform/services/ingestion/pkg/grpc"
+	kafkapkg "github.com/dnasol/dna-platform/services/ingestion/pkg/kafka"
+	"github.com/dnasol/dna-platform/services/ingestion/pkg/mongo"
+	"github.com/dnasol/dna-platform/services/ingestion/pkg/otel"
 	"github.com/dnasol/dna-platform/services/ingestion/pkg/ratelimit"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/segmentio/kafka-go"
+	grpclib "google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type IngestRequest struct {
@@ -26,9 +35,13 @@ type IngestRequest struct {
 }
 
 var (
-	kafkaWriter   *kafka.Writer
-	configManager *config.ConfigManager
-	rateLimiter   *ratelimit.TokenBucket
+	kafkaWriter    *kafka.Writer
+	configManager  *config.ConfigManager
+	rateLimiter    *ratelimit.TokenBucket
+	mongoStore     *mongo.Store
+	elasticLogger  *elasticsearch.Logger
+	eventPublisher *kafkapkg.EventPublisher
+	telemetry      *otel.Telemetry
 )
 
 func main() {
@@ -36,6 +49,7 @@ func main() {
 	kafkaBrokers := getEnv("KAFKA_BROKERS", "localhost:9092")
 	kafkaTopic := getEnv("KAFKA_TOPIC", "ingestion.raw.v1")
 	httpPort := getEnv("HTTP_PORT", "8080")
+	grpcPort := getEnv("GRPC_PORT", "9090")
 
 	// Initialize configuration manager
 	configManager = config.NewConfigManager()
@@ -46,6 +60,41 @@ func main() {
 	if err := configManager.LoadConfig(ctx); err != nil {
 		log.Printf("Warning: Failed to load initial config: %v", err)
 		log.Printf("Using default configuration")
+	}
+
+	// Initialize MongoDB store
+	mongoURL := getEnv("MONGO_URL", "mongodb://localhost:27017/ingestion")
+	var err error
+	mongoStore, err = mongo.NewStore(mongoURL)
+	if err != nil {
+		log.Printf("Warning: Failed to connect to MongoDB: %v", err)
+		log.Printf("Continuing without MongoDB persistence")
+	} else {
+		log.Printf("MongoDB store initialized")
+	}
+
+	// Initialize Elasticsearch logger
+	elasticURL := getEnv("ELASTICSEARCH_URL", "http://localhost:9200")
+	elasticIndex := getEnv("ELASTICSEARCH_INDEX", "ingestion-events")
+	elasticLogger = elasticsearch.NewLogger(elasticURL, elasticIndex, "ingestion")
+	log.Printf("Elasticsearch logger initialized")
+
+	// Initialize Kafka event publisher
+	eventPublisher = kafkapkg.NewEventPublisher(strings.Split(kafkaBrokers, ","), "service-events")
+	log.Printf("Kafka event publisher initialized")
+
+	// Initialize telemetry
+	metricsPort := getEnv("METRICS_PORT", "9091")
+	telemetry, err = otel.InitTelemetry(otel.Config{
+		ServiceName:    "ingestion-service",
+		ServiceVersion: "1.0.0",
+		JaegerEndpoint: getEnv("JAEGER_ENDPOINT", ""),
+		PrometheusPort: metricsPort,
+	})
+	if err != nil {
+		log.Printf("Warning: Failed to initialize telemetry: %v", err)
+	} else {
+		log.Printf("Telemetry initialized on port %s", metricsPort)
 	}
 
 	// Initialize rate limiter with config
@@ -66,6 +115,7 @@ func main() {
 	log.Printf("Kafka brokers: %s", kafkaBrokers)
 	log.Printf("Kafka topic: %s", kafkaTopic)
 	log.Printf("HTTP port: %s", httpPort)
+	log.Printf("gRPC port: %s", grpcPort)
 	log.Printf("JWT validation: %s", getEnv("JWT_ISSUER", "disabled"))
 	log.Printf("Rate limit: %d RPS", rateLimitRPS)
 
@@ -104,6 +154,28 @@ func main() {
 		log.Printf("HTTP server listening on :%s", httpPort)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server error: %v", err)
+		}
+	}()
+
+	// Start gRPC server
+	go func() {
+		lis, err := net.Listen("tcp", ":"+grpcPort)
+		if err != nil {
+			log.Fatalf("Failed to listen on gRPC port %s: %v", grpcPort, err)
+		}
+
+		grpcServer := grpclib.NewServer()
+		ingestionServer := grpc.NewIngestionServer(kafkaWriter, configManager, rateLimiter)
+
+		// Register the ingestion service
+		ingestionv1.RegisterIngestionServiceServer(grpcServer, ingestionServer)
+
+		// Enable reflection for grpcurl
+		reflection.Register(grpcServer)
+
+		log.Printf("gRPC server listening on :%s", grpcPort)
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("gRPC server error: %v", err)
 		}
 	}()
 
@@ -187,6 +259,8 @@ func jwtMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func handleIngest(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -271,7 +345,50 @@ func handleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Event ingested (protobuf): %s - %s=%.2f from %s", eventID, req.Metric, req.Value, req.Source)
+	// Store in MongoDB
+	if mongoStore != nil {
+		ingestedEvent := &mongo.IngestedEvent{
+			EventID:    eventID,
+			TenantID:   "", // TODO: Extract from JWT or request
+			Type:       "metric",
+			Source:     req.Source,
+			Payload:    map[string]interface{}{"metric": req.Metric, "value": req.Value},
+			Attributes: map[string]interface{}{"ingestion_ts": time.Now().Format(time.RFC3339)},
+		}
+
+		if err := mongoStore.StoreEvent(ctx, ingestedEvent); err != nil {
+			log.Printf("Warning: Failed to store event in MongoDB: %v", err)
+		}
+	}
+
+	// Log to Elasticsearch
+	if elasticLogger != nil {
+		duration := time.Since(startTime).Milliseconds()
+		if err := elasticLogger.LogIngestionEvent(ctx, eventID, req.Source,
+			map[string]interface{}{"metric": req.Metric, "value": req.Value},
+			"success", duration, nil); err != nil {
+			log.Printf("Warning: Failed to log to Elasticsearch: %v", err)
+		}
+	}
+
+	// Publish service event to Kafka
+	if eventPublisher != nil {
+		duration := time.Since(startTime).Milliseconds()
+		if err := eventPublisher.PublishIngestionEvent(ctx, eventID, req.Source,
+			map[string]interface{}{"metric": req.Metric, "value": req.Value},
+			"success", duration, nil); err != nil {
+			log.Printf("Warning: Failed to publish service event: %v", err)
+		}
+	}
+
+	// Record metrics
+	if telemetry != nil {
+		duration := time.Since(startTime).Seconds()
+		telemetry.Counter.Add(ctx, 1)
+		telemetry.Histogram.Record(ctx, duration)
+	}
+
+	log.Printf("Event ingested: %s - %s=%.2f from %s", eventID, req.Metric, req.Value, req.Source)
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")

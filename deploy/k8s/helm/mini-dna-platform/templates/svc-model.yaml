@@ -1,0 +1,77 @@
+{{- if .Values.services.model.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-model
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: model
+spec:
+  type: {{ .Values.services.model.service.type }}
+  ports:
+    - port: {{ .Values.services.model.service.port }}
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "mini-dna-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: model
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-model
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: model
+spec:
+  replicas: {{ .Values.services.model.replicas }}
+  selector:
+    matchLabels:
+      {{- include "mini-dna-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: model
+  template:
+    metadata:
+      labels:
+        {{- include "mini-dna-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: model
+    spec:
+      containers:
+        - name: model
+          image: "{{ .Values.global.imageRegistry }}/{{ .Values.services.model.image.repository }}:{{ .Values.services.model.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: HTTP_PORT
+              value: "8080"
+            - name: CONFIG_URL
+              value: "http://config:8084"
+            - name: CONFIG_SCOPE
+              value: "model"
+            - name: CONFIG_SSE_URL
+              value: "http://config:8084"
+            - name: BUS_BROKER
+              value: "redpanda:9092"
+            {{- range $key, $value := .Values.services.model.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.services.model.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+{{- end }}
+

@@ -1,0 +1,21 @@
+apiVersion: v2
+name: mini-dna-platform
+description: Minimal DNA Platform with Pluggable Services
+type: application
+version: 0.1.0
+appVersion: '0.1.0'
+home: https://github.com/mertnar/dna-platform
+sources:
+  - https://github.com/mertnar/dna-platform
+maintainers:
+  - name: DNA Platform Team
+    email: team@dnasol.com
+keywords:
+  - event-processing
+  - kafka
+  - microservices
+  - pluggable
+  - minimal
+annotations:
+  category: Infrastructure
+  licenses: Apache-2.0

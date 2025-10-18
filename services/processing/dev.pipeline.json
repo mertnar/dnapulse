@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "name": "parse_raw_json",
+      "type": "parse_json",
+      "args": {
+        "source_field": "raw"
+      },
+      "on_error": "skip"
+    },
+    {
+      "name": "normalize_standard_fields",
+      "type": "normalize_fields",
+      "args": {
+        "mappings": {
+          "timestamp": "ts",
+          "log_level": "level",
+          "host_name": "host"
+        }
+      },
+      "on_error": "skip"
+    },
+    {
+      "name": "convert_units",
+      "type": "unit_convert",
+      "args": {
+        "conversions": [
+          {
+            "field": "cpu_usage",
+            "from": "percent",
+            "to": "decimal"
+          },
+          {
+            "field": "memory_bytes",
+            "from": "bytes",
+            "to": "MB"
+          }
+        ]
+      },
+      "on_error": "skip"
+    },
+    {
+      "name": "redact_sensitive_data",
+      "type": "redact_mask",
+      "args": {
+        "fields": ["email", "credit_card", "ssn"],
+        "strategy": "partial"
+      },
+      "on_error": "skip"
+    },
+    {
+      "name": "dedupe_events",
+      "type": "deduplicate",
+      "args": {
+        "fields": ["event_id", "source"],
+        "ttl_seconds": 300
+      },
+      "on_error": "skip"
+    },
+    {
+      "name": "enrich_location",
+      "type": "enrich_geoip",
+      "args": {
+        "src_field": "ip_address",
+        "cache_ttl_sec": 3600
+      },
+      "on_error": "skip"
+    },
+    {
+      "name": "validate_payload",
+      "type": "validate_schema",
+      "args": {
+        "schema_url": "https://example.com/event-schema.json"
+      },
+      "on_error": "skip"
+    }
+  ],
+  "persist": {
+    "mongo": {
+      "enabled": true,
+      "collection": "events"
+    },
+    "elasticsearch": {
+      "enabled": true,
+      "index": "dna-events"
+    }
+  }
+}

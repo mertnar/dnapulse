@@ -1,0 +1,176 @@
+{{- if .Values.observability.enabled }}
+{{- if .Values.observability.prometheus.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-prometheus
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "mini-dna-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: prometheus
+  template:
+    metadata:
+      labels:
+        {{- include "mini-dna-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: prometheus
+    spec:
+      serviceAccountName: {{ include "mini-dna-platform.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: prometheus
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.observability.prometheus.image.repository }}:{{ .Values.observability.prometheus.image.tag }}"
+          imagePullPolicy: {{ .Values.observability.prometheus.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9090
+              protocol: TCP
+          args:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus/'
+            - '--web.console.libraries=/etc/prometheus/console_libraries'
+            - '--web.console.templates=/etc/prometheus/consoles'
+            - '--storage.tsdb.retention.time=200h'
+            - '--web.enable-lifecycle'
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus/
+            - name: prometheus-storage
+              mountPath: /prometheus/
+          resources:
+            {{- toYaml .Values.observability.prometheus.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: {{ include "mini-dna-platform.fullname" . }}-prometheus-config
+        - name: prometheus-storage
+          {{- if .Values.observability.prometheus.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "mini-dna-platform.fullname" . }}-prometheus-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-prometheus
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  type: {{ .Values.observability.prometheus.service.type }}
+  ports:
+    - port: {{ .Values.observability.prometheus.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "mini-dna-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-prometheus-config
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.observability.prometheus.config.scrape_interval }}
+      evaluation_interval: {{ .Values.observability.prometheus.config.evaluation_interval }}
+
+    scrape_configs:
+      {{- range .Values.observability.prometheus.config.scrape_configs }}
+      - job_name: '{{ .job_name }}'
+        {{- if .kubernetes_sd_configs }}
+        kubernetes_sd_configs:
+          {{- toYaml .kubernetes_sd_configs | nindent 10 }}
+        {{- end }}
+        {{- if .relabel_configs }}
+        relabel_configs:
+          {{- toYaml .relabel_configs | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      # DNA Platform Services
+      - job_name: 'dna-ingestion'
+        static_configs:
+          - targets: ['{{ include "mini-dna-platform.fullname" . }}-ingestion:{{ .Values.services.ingestion.metrics.port }}']
+        metrics_path: '{{ .Values.services.ingestion.metrics.path }}'
+        scrape_interval: 15s
+
+      - job_name: 'dna-processing'
+        static_configs:
+          - targets: ['{{ include "mini-dna-platform.fullname" . }}-processing:{{ .Values.services.processing.metrics.port }}']
+        metrics_path: '{{ .Values.services.processing.metrics.path }}'
+        scrape_interval: 15s
+
+      {{- if .Values.services.decision.enabled }}
+      - job_name: 'dna-decision'
+        static_configs:
+          - targets: ['{{ include "mini-dna-platform.fullname" . }}-decision:{{ .Values.services.decision.metrics.port }}']
+        metrics_path: '{{ .Values.services.decision.metrics.path }}'
+        scrape_interval: 15s
+      {{- end }}
+
+      - job_name: 'dna-config'
+        static_configs:
+          - targets: ['{{ include "mini-dna-platform.fullname" . }}-config:{{ .Values.services.config.metrics.port }}']
+        metrics_path: '{{ .Values.services.config.metrics.path }}'
+        scrape_interval: 15s
+
+      {{- if .Values.services.model.enabled }}
+      - job_name: 'dna-model'
+        static_configs:
+          - targets: ['{{ include "mini-dna-platform.fullname" . }}-model:{{ .Values.services.model.metrics.port }}']
+        metrics_path: '{{ .Values.services.model.metrics.path }}'
+        scrape_interval: 15s
+      {{- end }}
+
+      # Infrastructure
+      - job_name: 'redpanda'
+        static_configs:
+          - targets: ['{{ include "mini-dna-platform.fullname" . }}-redpanda:{{ .Values.infrastructure.redpanda.metrics.port }}']
+        metrics_path: '{{ .Values.infrastructure.redpanda.metrics.path }}'
+        scrape_interval: 15s
+{{- if .Values.observability.prometheus.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "mini-dna-platform.fullname" . }}-prometheus-pvc
+  labels:
+    {{- include "mini-dna-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  accessModes:
+    {{- range .Values.persistence.accessModes }}
+    - {{ . | quote }}
+    {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.observability.prometheus.persistence.size }}
+{{- end }}
+{{- end }}
+{{- end }}
