@@ -1,0 +1,70 @@
+# DNA Pulse Linux Resource Monitor Agent Configuration
+# This agent monitors system resources including CPU, RAM, GPU, disk, and processes
+
+agent:
+  name: 'linux-resource-monitor'
+  type: 'linux-resource-monitor'
+  version: '1.0.0'
+  description: 'Linux system resource monitor'
+  platform: 'linux'
+  hostname: '' # Auto-detected if empty
+  log_level: 'info'
+  log_file: '/var/log/dnapulse/linux-resource-monitor.log'
+
+ingestion:
+  url: 'http://localhost:19071'
+  api_key: 'YOUR_API_KEY_HERE' # Get this from DNA Pulse web UI
+  timeout: 30s
+  retry_attempts: 3
+  retry_delay: 5s
+  batch_size: 50 # Smaller batch for metrics
+  flush_interval: 10s # Send every 10 seconds
+
+collection:
+  enabled: true
+  interval: 10s # Collect metrics every 10 seconds
+  max_batch_size: 100
+  buffer_size: 1000
+  sources:
+    - type: 'system_resources'
+      enabled: true
+      fields:
+        # Optional custom fields to add to all events
+        environment: 'production'
+        datacenter: 'dc1'
+      # Collection settings (all optional, defaults to true)
+      collect_cpu: true
+      collect_memory: true
+      collect_disk: true
+      collect_gpu: true # Optional, won't fail if GPU unavailable
+      collect_processes: true
+      top_processes_count: 10
+
+metadata:
+  data_source_id: '' # Filled automatically during registration
+  organization_id: '' # Filled automatically during registration
+  environment: 'production'
+  region: 'us-east-1'
+  tags:
+    role: 'monitoring'
+    team: 'infrastructure'
+  custom_fields:
+    datacenter: 'dc1'
+    cluster: 'prod-cluster-1'
+
+sync:
+  enabled: true
+  interval: 5m
+  url: 'http://localhost:19071/api/v1/agent/config'
+  auto_apply: true # Automatically apply config changes
+  backup_configs: true # Backup old configs before applying new ones
+
+# Example usage:
+# 1. Register the agent:
+#    ./dnapulse-agent -config linux-resource-monitor.yaml -register
+#
+# 2. Run the agent:
+#    ./dnapulse-agent -config linux-resource-monitor.yaml
+#
+# 3. Run as a service (after installation):
+#    sudo systemctl start dnapulse-agent

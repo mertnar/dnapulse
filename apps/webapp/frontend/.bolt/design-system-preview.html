@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNA Pulse Design System Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #F8FAFB;
+            color: #1E2B2F;
+            padding: 40px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { background: white; border-radius: 12px; padding: 32px; margin-bottom: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { font-size: 32px; font-weight: 600; margin-bottom: 8px; }
+        h2 { font-size: 24px; font-weight: 600; margin-bottom: 24px; border-bottom: 2px solid #E5E7EB; padding-bottom: 12px; }
+        h3 { font-size: 20px; font-weight: 500; margin: 24px 0 16px; }
+        .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; }
+        .color-swatch {
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid #E5E7EB;
+        }
+        .color-box {
+            width: 100%;
+            height: 80px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .color-name { font-size: 12px; font-weight: 500; margin-bottom: 4px; }
+        .color-hex { font-size: 11px; color: #6B7280; font-family: monospace; }
+        .typography-sample { margin-bottom: 16px; padding: 16px; background: #F8FAFB; border-radius: 8px; }
+        .type-meta { font-size: 11px; color: #6B7280; margin-top: 4px; font-family: monospace; }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 4px;
+        }
+        .logo { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
+        .logo img { height: 120px; width: auto; }
+        .logo-text { font-size: 15px; color: #6B7280; max-width: 600px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="section">
+            <div class="logo">
+                <img src="../public/dna_pulse_logo.png" alt="DNA Pulse Logo">
+            </div>
+            <div class="logo-text">
+                <strong>DNA Pulse Design System v1.0.0</strong><br>
+                Enterprise telemetry and intelligence platform visual design system
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Primary Brand Colors</h2>
+
+            <h3>DNA Green (Primary)</h3>
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #E8F5EE;"></div>
+                    <div class="color-name">primary-50</div>
+                    <div class="color-hex">#E8F5EE</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #C2E6D4;"></div>
+                    <div class="color-name">primary-100</div>
+                    <div class="color-hex">#C2E6D4</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #99D7BA;"></div>
+                    <div class="color-name">primary-200</div>
+                    <div class="color-hex">#99D7BA</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #6BCF9B;"></div>
+                    <div class="color-name">primary-300</div>
+                    <div class="color-hex">#6BCF9B</div>
+                </div>
+                <div class="color-swatch" style="border: 3px solid #4CAF7A;">
+                    <div class="color-box" style="background: #4CAF7A;"></div>
+                    <div class="color-name">primary-400 ⭐</div>
+                    <div class="color-hex">#4CAF7A</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #3CB371;"></div>
+                    <div class="color-name">primary-500</div>
+                    <div class="color-hex">#3CB371</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #359F63;"></div>
+                    <div class="color-name">primary-600</div>
+                    <div class="color-hex">#359F63</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #2D8A54;"></div>
+                    <div class="color-name">primary-700</div>
+                    <div class="color-hex">#2D8A54</div>
+                </div>
+            </div>
+
+            <h3>Pulse Dark (Structural)</h3>
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #F5F7F8;"></div>
+                    <div class="color-name">dark-50</div>
+                    <div class="color-hex">#F5F7F8</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #34484E;"></div>
+                    <div class="color-name">dark-500</div>
+                    <div class="color-hex">#34484E</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #26363B;"></div>
+                    <div class="color-name">dark-600</div>
+                    <div class="color-hex">#26363B</div>
+                </div>
+                <div class="color-swatch" style="border: 3px solid #1E2B2F;">
+                    <div class="color-box" style="background: #1E2B2F;"></div>
+                    <div class="color-name">dark-700 ⭐</div>
+                    <div class="color-hex">#1E2B2F</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #171F22;"></div>
+                    <div class="color-name">dark-800</div>
+                    <div class="color-hex">#171F22</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #0F1415;"></div>
+                    <div class="color-name">dark-900</div>
+                    <div class="color-hex">#0F1415</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Accent Colors</h2>
+
+            <h3>Insight Orange</h3>
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #FFF3E0;"></div>
+                    <div class="color-name">insight-50</div>
+                    <div class="color-hex">#FFF3E0</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #FFB74D;"></div>
+                    <div class="color-name">insight-300</div>
+                    <div class="color-hex">#FFB74D</div>
+                </div>
+                <div class="color-swatch" style="border: 3px solid #FFA726;">
+                    <div class="color-box" style="background: #FFA726;"></div>
+                    <div class="color-name">insight-400 ⭐</div>
+                    <div class="color-hex">#FFA726</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #F57C00;"></div>
+                    <div class="color-name">insight-700</div>
+                    <div class="color-hex">#F57C00</div>
+                </div>
+            </div>
+
+            <h3>Data Blue</h3>
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #E3F2FD;"></div>
+                    <div class="color-name">data-50</div>
+                    <div class="color-hex">#E3F2FD</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #64B5F6;"></div>
+                    <div class="color-name">data-300</div>
+                    <div class="color-hex">#64B5F6</div>
+                </div>
+                <div class="color-swatch" style="border: 3px solid #42A5F5;">
+                    <div class="color-box" style="background: #42A5F5;"></div>
+                    <div class="color-name">data-400 ⭐</div>
+                    <div class="color-hex">#42A5F5</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #1976D2;"></div>
+                    <div class="color-name">data-700</div>
+                    <div class="color-hex">#1976D2</div>
+                </div>
+            </div>
+
+            <h3>Correlation Violet</h3>
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #F3E5F5;"></div>
+                    <div class="color-name">correlation-50</div>
+                    <div class="color-hex">#F3E5F5</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #9575CD;"></div>
+                    <div class="color-name">correlation-400</div>
+                    <div class="color-hex">#9575CD</div>
+                </div>
+                <div class="color-swatch" style="border: 3px solid #7E57C2;">
+                    <div class="color-box" style="background: #7E57C2;"></div>
+                    <div class="color-name">correlation-500 ⭐</div>
+                    <div class="color-hex">#7E57C2</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #6A1B9A;"></div>
+                    <div class="color-name">correlation-700</div>
+                    <div class="color-hex">#6A1B9A</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Semantic Colors</h2>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <div style="padding: 24px; background: #4CAF7A; color: white; border-radius: 8px; flex: 1; min-width: 200px;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">Success</div>
+                    <div style="font-size: 11px; opacity: 0.9;">#4CAF7A</div>
+                </div>
+                <div style="padding: 24px; background: #FFA726; color: white; border-radius: 8px; flex: 1; min-width: 200px;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">Warning</div>
+                    <div style="font-size: 11px; opacity: 0.9;">#FFA726</div>
+                </div>
+                <div style="padding: 24px; background: #EF5350; color: white; border-radius: 8px; flex: 1; min-width: 200px;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">Error</div>
+                    <div style="font-size: 11px; opacity: 0.9;">#EF5350</div>
+                </div>
+                <div style="padding: 24px; background: #42A5F5; color: white; border-radius: 8px; flex: 1; min-width: 200px;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">Info</div>
+                    <div style="font-size: 11px; opacity: 0.9;">#42A5F5</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Typography Scale</h2>
+
+            <div class="typography-sample">
+                <h1 style="font-size: 32px; line-height: 40px; font-weight: 600;">H1 - Page Title</h1>
+                <div class="type-meta">32px / 40px • Semibold (600)</div>
+            </div>
+
+            <div class="typography-sample">
+                <h2 style="font-size: 24px; line-height: 32px; font-weight: 600;">H2 - Section Title</h2>
+                <div class="type-meta">24px / 32px • Semibold (600)</div>
+            </div>
+
+            <div class="typography-sample">
+                <h3 style="font-size: 20px; line-height: 28px; font-weight: 500;">H3 - Subsection Title</h3>
+                <div class="type-meta">20px / 28px • Medium (500)</div>
+            </div>
+
+            <div class="typography-sample">
+                <h4 style="font-size: 16px; line-height: 24px; font-weight: 500;">H4 - Component Header</h4>
+                <div class="type-meta">16px / 24px • Medium (500)</div>
+            </div>
+
+            <div class="typography-sample">
+                <p style="font-size: 15px; line-height: 22px; font-weight: 400;">Body Large - Emphasized body text and introductory paragraphs</p>
+                <div class="type-meta">15px / 22px • Regular (400)</div>
+            </div>
+
+            <div class="typography-sample">
+                <p style="font-size: 14px; line-height: 20px; font-weight: 400;">Body - Primary body text, table content, and form inputs</p>
+                <div class="type-meta">14px / 20px • Regular (400)</div>
+            </div>
+
+            <div class="typography-sample">
+                <p style="font-size: 13px; line-height: 18px; font-weight: 400;">Body Small - Dense information and secondary descriptions</p>
+                <div class="type-meta">13px / 18px • Regular (400)</div>
+            </div>
+
+            <div class="typography-sample">
+                <p style="font-size: 12px; line-height: 16px; font-weight: 500;">Label - Form labels, data labels, UI element labels</p>
+                <div class="type-meta">12px / 16px • Medium (500)</div>
+            </div>
+
+            <div class="typography-sample">
+                <p style="font-size: 11px; line-height: 14px; font-weight: 400;">Caption - Timestamps, metadata, helper text</p>
+                <div class="type-meta">11px / 14px • Regular (400)</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Component Examples</h2>
+
+            <h3>Badges</h3>
+            <div style="margin-bottom: 24px;">
+                <span class="badge" style="background: rgba(76, 175, 122, 0.1); color: #4CAF7A;">Success</span>
+                <span class="badge" style="background: rgba(255, 167, 38, 0.1); color: #FFA726;">Warning</span>
+                <span class="badge" style="background: rgba(239, 83, 80, 0.1); color: #EF5350;">Error</span>
+                <span class="badge" style="background: rgba(66, 165, 245, 0.1); color: #42A5F5;">Info</span>
+            </div>
+
+            <h3>Buttons</h3>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button style="background: #4CAF7A; color: white; padding: 8px 16px; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">Primary</button>
+                <button style="background: #E5E7EB; color: #1E2B2F; padding: 8px 16px; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">Secondary</button>
+                <button style="background: #EF5350; color: white; padding: 8px 16px; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">Danger</button>
+                <button style="background: transparent; color: #1E2B2F; padding: 8px 16px; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">Ghost</button>
+            </div>
+        </div>
+
+        <div class="section" style="background: #1E2B2F; color: white;">
+            <h2 style="border-color: rgba(255,255,255,0.1);">Dark Mode Preview</h2>
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 24px;">All colors adapt seamlessly to dark mode</p>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <div style="background: #162235; padding: 16px; border-radius: 8px; flex: 1; min-width: 200px; border: 1px solid #24324A;">
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 4px;">Surface</div>
+                    <div style="font-family: monospace; font-size: 11px;">#162235</div>
+                </div>
+                <div style="background: #0F172A; padding: 16px; border-radius: 8px; flex: 1; min-width: 200px; border: 1px solid #24324A;">
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 4px;">Background</div>
+                    <div style="font-family: monospace; font-size: 11px;">#0F172A</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

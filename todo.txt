@@ -1,0 +1,238 @@
+1- Framework ile DNA Pulse ortamını başlat +
+2- Frontend ve Backend ile web uygulamasını çalışır hale getir +
+3- Ingestion servisi:
+    - veri kaynağından register
+    - ingestion servisi register isteği alır. Agent API-key kullanarak register olmalıdır. API-key account'a özel oluşturulur.     
+    - Ingestion servisi valid bir register isteğinden data source'u sisteme kayıt eder. Agent ilk bağlantıda register isteği atar. Bu istekte data-source bilgilerini de gönderir.     
+    - Her veri kaynağı belirli bir agent için aslında bir type'tır. O type ile agent'ın ait olduğu veri kaynağının ne olduğu, nasıl veri göndereceği, gönderdiği verinin formatı, yapısı, işlenme yöntemi vb. bilgiler ile metadata'sını oluşturmaktadır.      
+    - Eğer yeni kayıt olan agent'ın veri kaynağı kayıtlı değilse veri kaynağı kaydı yapılır. eğer kayıtlı ise dublication yapılmasına engel olunur.     
+    - Response olarak id döner. Artık ingestion servisi'ine bu id ile bağlacaktır. Her agent için unique bir id olur.
+    - health : Agent sağlık durumunu belirli aralıklarla göndermelidir
+    - pulse: Agent veri kaynağından veri gönderme işlemi     
+    - Agent veriyi pulse post atarak gönderir     
+    - ingestion servisi gönderilen verinin yapısal kontrolünü yapar
+    - veri kaynağının metadatasına uygun mu     
+    - veri parse edilip, kayıt zamanı için timestamp koyularak db'ye kayıt edilir.     
+    - kafka event oluşturulur.
+    - Response olarak kayıt işleminde hata varsa ya da başarılı kayıt ise onu döner.
+4- Web uygulamasından veri kaynakları takip edilebilmelidir:   
+    - Yeni Kayıt olanlar, aktif veri gönderenler, veri kayıt hatası olanlar, pasif olanlar, agent listesi vb.
+5- Data Source'a kayıt olup veri gönderen veri kaynakları Agent olarak geçer. 
+
+Soru: Veri kaynağını önce web uygulamasından ekleyip orada alınan api-key ile mi kayıt etmek daha doğru yoksa account'a atanan tek api key ile önce data source'un kayıt olup sonra web uygulamasından yönetmek mi daha doğru olur.
+
+Eğer önce agent'dan veri göndermek ise register isteği gelmiş ama web uygulamasında yönetilmemiş data source için bir işlem gerekir. Eğer önce data source kayıt etmek gerekirse agent'dan gönderilecek veri yapısının önden girilmesi gerekir. Ama agent'ın kendi göndereceği veri yapısını kendisinin bildirmesi daha esnek bir uygulama sağlar.
+
+propmt:
+Sen yazılım mimarı ve uzman yazılım mühendisisin. Olabilecek en profesyonel anlamda tasarım kararlarını vermeni ve implement etmeni istiyorum
+Şimdi ilk use case'imizi implement edelim: Data Source ve Agents modülleri.
+DNA Pulse uygulaması Data Source'lardan veriyi ingestion servisi üstünden alacaktır. Bu servis register hizmeti sağlar. İlk olarak http RESTful servis olarak çalışalım. Ingestion servisi register isteği alır. Agent API-key kullanarak register olmalıdır. API-key account'a özel oluşturulur. Her şirket ya yda organizasyon bir account'a sahiptir ve bir account için birden fazla kullanıcı tanımlanabilecektir.
+Ingestion servisi valid bir register isteğinden data source'u sisteme kayıt eder. Agent ilk bağlantıda register isteği atar. Bu istekte data-source bilgilerini de gönderir (veri kaynağından register aşamasında ne tür veriler geleceğini analiz etmeni ve buradaki modeli ona göre tasarlamanı ve implement etmeni istiyorum.) Her veri kaynağı belirli bir agent için aslında bir type'dır (ilk aşamada agent'lar üstünden veri gönderimi olsa da ileriki aşamalarda agent dışında farklı veri kaynakları da tanımlanabileceği için böyle bir ayrım uygun gördük. Bunları dikkate alarak tasarım kararlarını ve implementasyon yapmanı rica ediyorum). O type ile agent'ın ait olduğu veri kaynağının ne olduğu, nasıl veri göndereceği, gönderdiği verinin formatı, yapısı, işlenme yöntemi vb. bilgiler ile metadata'sını oluşturmaktadır.
+Eğer yeni kayıt olan agent'ın veri kaynağı kayıtlı değilse veri kaynağı kaydı yapılır. eğer kayıtlı ise dublication yapılmasına engel olunur.
+Response olarak id döner. Artık ingestion servisi'ine bu id ile bağlacaktır. Her agent için unique bir id olur.
+health : Agent sağlık durumunu belirli aralıklarla göndermelidir
+pulse: Agent veri kaynağından veri gönderme işlemi     
+Agent veriyi pulse post atarak gönderir     
+ingestion servisi gönderilen verinin yapısal kontrolünü yapar - veri kaynağının metadatasına uygun mu     
+veri parse edilip, kayıt zamanı için timestamp koyularak db'ye kayıt edilir. Aynı zamanda elk'ya da kayıt gerçekleştirilir.     
+kafka event oluşturulur.
+Response olarak kayıt işleminde hata varsa ya da başarılı kayıt ise onu döner.
+Agent ve Ingestion servisi arasındaki etkileşimler web uygulamasından da takip edilebilmelidir. Hem agent sayfasında hem de Data Source sayfasında takip edilebilmelidir. Register isteği göndermiş bir agent eğer yeni bir data source ile kayıt yaptıysa kullanıcı bunu anlayabilmeli ve Data Source modülü içinde yönetebilmelidir. Data Source Details sayfasında, o data source ile veri gönderen tüm agent'ları takip edebilmeliyiz. Agents sayfasında her agent için bir data source olmalı ve agent oradan indirilebilmelidir.
+
+
+ Kullanım:
+MongoDB Başlatma:
+node scripts/init-mongodb.js
+
+Ingestion Service:
+cd services/ingestion
+go run cmd/ingestion/main.go
+
+Webapp Backend:
+cd apps/webapp/backend
+npm install
+npm run dev
+
+Test Çalıştırma:
+cd services/ingestion
+go test -v ./test/...
+
+
+
+
+6- Agent uygulaması oluştur. Agent'ı servis olarak çalışacaktır. Agent belirli bir config dosyası ile çalışacaktır. Config dosyasında o agent için ayarlamalar, metadata bilgisi, veri göndereceği ingestion servis bilgileri, veri toplama sıklığı, işletim sistemi, version, data-source metadata vb. bilgiler yazacaktır. Bu bilgileri kullanıcı web uygulaması üstünden görebilecektir. Bazı bilgiler web uygulamasından ayarlanabilecek, Değiştirilmiş bilgileri kabul eden ve uygulayan agent'ların bilgisi de web uygulamasından izlenebilecektir. Bir agent hangi sunuculara kurulduğu listesi görülecektir ve sunucuda çalışan agent instance için web uygulamasında spesifik yönetim de yapılabilecektir.
+
+TODO:
+- Config Service Entegrasyonu: Ingestion servisinin config service'e bağlanması ve hot reload özelliğinin aktif edilmesi
+  - ENABLE_CONFIG_SERVICE=true environment variable ile aktif edilecek
+  - Config service bağlantı hatalarını handle etme
+  - Hot reload mekanizmasının test edilmesi
+
+TESTLER
+1. Backend ve Frontend Servisleri Çalıştır:
+# Terminal 1 - Backend
+cd apps/webapp/backend && npm run dev
+
+# Terminal 2 - Frontend
+cd apps/webapp/frontend && npm run dev
+
+# Terminal 3 - Ingestion Service
+cd services/ingestion && go run cmd/ingestion/main.go
+
+2. Web UI'da Test Et:
+http://localhost:5173/agents-new sayfasını aç
+"Linux Resource Monitor" agent type'ını seç
+"Download & Install" butonuna tıkla
+Binary'yi indir ve test et
+
+3. Agent'ı Kaydet ve Çalıştır
+# Config oluştur
+cp apps/agents/dnapulse-agent/configs/linux-resource-monitor.example.yaml /tmp/agent.yaml
+# API key ekle
+
+# Kaydet
+./apps/agents/dnapulse-agent/build/linux-resource-monitor-linux-amd64 \
+  -config /tmp/agent.yaml -register
+
+# Çalıştır
+./apps/agents/dnapulse-agent/build/linux-resource-monitor-linux-amd64 \
+  -config /tmp/agent.yaml
+
+4. MongoDB'de Doğrula:
+# Agent types
+db.agent_types.find().pretty()
+
+# Agent instances
+db.agents.find().pretty()
+
+# Events (30 saniye sonra)
+db.events.find({event_type: "system_metrics"}).limit(1).pretty()
+
+
+# Download and install Linux Resource Monitor
+curl -L -o /tmp/linux-resource-monitor http://localhost:3001/downloads/linux-resource-monitor-linux-amd64
+chmod +x /tmp/linux-resource-monitor
+sudo mv /tmp/linux-resource-monitor /usr/local/bin/dnapulse-agent
+
+# Create config directory
+sudo mkdir -p /etc/dnapulse-agent
+
+# Register the agent
+dnapulse-agent -config /etc/dnapulse-agent/agent.yaml -register -api-key dna_1770294316921_g0auhpwt6xd
+
+
+docker compose -f docker-compose.dev.yml up -d
+
+TODO:
+agent register olurken payload olarak göndereceği verinin formatını göndermeli ve bu format ilgili data source için schema olarak kayıt edilmelidir.
+Bunun için register iki aşamadan oluşur:
+ilk data source kaydı yapılır.
+Bu tamamlandıktan sonra schema discover işlemi yapılır. Bu işlemde agent 1 defaya mahsus standart veri toplama işlemini yapar ve onu gönderir. Bu örnek veri ile ingestion servisi discover-schema yapar.
+YAPILDI - Test EDİLDİ
+
+2- LIVE STREAM DESIGN AND IMPLEMENTATION
+
+Goal: Implement DNA Pulse "Live Monitor" backend + minimal frontend wiring to match the Live Monitor UI.
+Context:
+- Events are stored in MongoDB `events` collection.
+- Each event has organization_id, tenant_id, data_source_id, agent_id, type, source, payload, ingested_at, created_at.
+- Schema is stored in `discovered_schemas` with fields[] and sample_data.
+Requirements:
+1) Normalize events on processing service:
+   - Add canonical timestamp field `@ts` (payload.timestamp if exists else ingested_at).
+   - Add `severity` (critical/high/medium/low/info) default info.
+   - Add `event_type`, `host`, `user`, `service` if available in payload (map via data_source schema if needed).
+   - Create `flattened` object for hot fields (dot paths from discovered_schemas where is_indexed=true).
+2) Implement Live Monitor API:
+   - POST /api/live-monitor/search
+     - inputs: organization_id, time_range (preset or from/to), query (KQL-like), limit, cursor
+     - outputs: events[], next_cursor
+     - use projection for list view; do NOT return full payload unless expanded
+   - POST /api/live-monitor/agg
+     - returns histogram buckets over time interval, grouped by severity
+   - GET /api/live-monitor/fields?data_source_id=
+     - returns discovered schema fields grouped: Common, Network, Process, File, Custom (use tags on schema fields or prefix heuristics)
+   - POST /api/live-monitor/facet
+     - top values for a field_path under the same filter
+   - Saved views:
+     - POST /api/live-monitor/views (create)
+     - GET /api/live-monitor/views (list)
+     - GET /api/live-monitor/views/:id (load)
+     - store: org_id, name, query, time_preset, selected_columns, pinned_filters, datasource_scope
+   - Integrations:
+     - POST /api/alert-rules/from-live-monitor (create rule from query/view)
+     - POST /api/investigations/:id/events (add event_ids OR query_snapshot)
+3) Realtime stream:
+   - Implement SSE endpoint GET /api/live-monitor/stream
+   - Source: Mongo change streams OR Kafka event.created (choose simplest available in this repo)
+   - Apply same org scope + query filter; push matched events to client
+4) Query parsing:
+   - Implement a safe KQL-like parser supporting: AND/OR/NOT, parentheses, field:value, field:"quoted", wildcard suffix (*), range on @ts (now-1h)
+   - Only allow fields present in discovered_schemas for the chosen datasource(s) + common fields
+   - Compile to Mongo filter
+5) Performance:
+   - Add Mongo indexes: (organization_id, @ts desc), (organization_id, severity, @ts desc), (organization_id, data_source_id, @ts desc), (organization_id, agent_id, @ts desc)
+   - Pagination via keyset cursor (@ts, _id)
+6) Tests:
+   - Unit tests for query parser -> Mongo filter
+   - API tests for search + agg + facet
+Deliverables:
+- Backend routes/controllers/services
+- Mongo indexes migration script
+- Minimal frontend wiring (if repo has React): call search + agg; render histogram and table; fields panel uses /fields + /facet; auto-refresh toggle.
+Output:
+- Provide file-by-file changes, code, and brief run instructions.
+
+
+Hatalar:
+Live Stream'de search çalışmıyor.
+"Save View", "Create Alert Rule", "Add to Investigation" butonları çalışmıyor. Bu butonlar her biri kendi modal'ini açmalı ve kullanıcıdan gerekli bilgileri alıp kendi işlerini yapmalıdırlar.
+
+
+
+DATA model
+Yeni Data Source eklenince otomatik olarak o data source için bir data model oluşturulur. Bu data model'in tipi root olacaktır.
+Her data model'in required olarak bir data_index değeri tanımlanmalıdır. Bu değer ile data model tanımlanır. Bu değer unique olmalıdır.
+Agent Type config dosyasında source.type değeri zorunludur. Bu değer data source için ve data model için data_index olarak kayıt edilir.
+Bir Agent type'ında birden fazla source tanımlanabilir. Her source için bir data source ve data model oluşturulacaktır. Gönderilen veriler aynı agent'dan gönderilse bile farklı index'lere elk kaydı yapılır.
+
+Data model modülünü yaparken uygulamanın events'lerini elk'ya kayıt edelim ve elk bağlantılarını kuralım. Her data model için tanımlanan data_index, o veri modelinin elk içinde kayıt altında tutan
+index olacaktır.
+Data model modülünde kullanıcı yeni bir data model oluşturabilecektir. Bunun için ilk olarak yeni bir data-index değeri girer ve bu data modelde olması gereken field'ları belirler.
+Field belirleme işlemleri:
+  - Diğer data model'leri birleştirme ve seçilen field'lar
+  - Bir ya da birden fazla field'ı işleme sokup yeni field oluşturma - işlemler processing servisinde kodlanmış işlemlerden biri olmalıdır. Her işlem için şu pattern geçerlidir:
+      test(): işlemin verilen test inputları ile denenmesi
+      execute(): işlemin belirlenmiş şartlar altında veri akışındaki veriye uygulanarak sonuçlandırılması - execute işleminin çalışması config dosyasından alınır.
+  - normalization
+  - vectorization
+  - ... diğer data işlemleri
+
+Data model içinde yeni oluşturulan veri modelinin cinsi derived olur. Derived olan veri modelleri bir config dosyası taşır ve bu config dosyası ile aslında processing servisini yönetir.
+Processing servisinde tüm data model'lerin config dosyalarından yeni data modeller oluşturarak onları elk sunucusuna kayıt eder.
+
+
+
+2. aşama:
+  - Live Monitor ve Detection & Investigation sayfalarını elk search şeklinde yap
+  - Live Monitor ve D&I da index bazlı çalışmasını sağla
+  - Events listesi olarak ya da seçilen field'lar için tablo şeklinde görünüm sağlanabilir olmalıdır.
+  - Event ayrıntısında parsed data görünümü için çalışma
+  - Ayrıntılı investigation özellikleri ekle
+  - Dashboard oluşturabilme ve uygulama ana dashboard olarak atayabilme
+  -
+1. Kullanıcı sayfayı açar
+   ↓
+2. Data model index'leri yüklenir (organization'a özel)
+   ↓
+3. Kullanıcı index seçer (örn: "Linux Resource Monitor - Root Model")
+   ↓
+4. Seçilen index: org_111__linux-resource-monitor__v1
+   ↓
+5. Kullanıcı query yazar: "severity:critical AND cpu_usage > 80"
+   ↓
+6. Backend ELK'ya sorgu gönderir
+   ↓
+7. Elasticsearch sonuçları döner
+   ↓
+8. Event'ler ve histogram gösterilir

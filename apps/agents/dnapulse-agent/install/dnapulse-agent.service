@@ -1,0 +1,30 @@
+[Unit]
+Description=DNA Pulse Agent
+Documentation=https://github.com/dnasol/dna-platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dnapulse
+Group=dnapulse
+ExecStart=/usr/local/bin/dnapulse-agent -config /etc/dnapulse-agent/agent.yaml
+Restart=on-failure
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dnapulse-agent
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/dnapulse-agent /etc/dnapulse-agent
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=512
+
+[Install]
+WantedBy=multi-user.target

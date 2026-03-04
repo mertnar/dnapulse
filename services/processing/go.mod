@@ -5,10 +5,12 @@ go 1.24.0
 toolchain go1.24.9
 
 require (
+	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/dnasol/dna-platform/sdks/go-sdk v0.0.0
 	github.com/elastic/go-elasticsearch/v8 v8.19.0
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/prometheus/client_golang v1.23.2
+	github.com/sashabaranov/go-openai v1.41.2
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0

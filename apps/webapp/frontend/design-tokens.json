@@ -1,0 +1,253 @@
+{
+  "name": "DNA Pulse Design System",
+  "version": "1.0.0",
+  "description": "Enterprise telemetry and intelligence platform design system",
+  "colors": {
+    "primary": {
+      "name": "DNA Green",
+      "description": "Primary brand color representing life, growth, and system health",
+      "scale": {
+        "50": "#E8F5EE",
+        "100": "#C2E6D4",
+        "200": "#99D7BA",
+        "300": "#6BCF9B",
+        "400": "#4CAF7A",
+        "500": "#3CB371",
+        "600": "#359F63",
+        "700": "#2D8A54",
+        "800": "#257646",
+        "900": "#1D6238"
+      },
+      "usage": [
+        "Primary CTAs and action buttons",
+        "System health indicators",
+        "Success states",
+        "Active navigation items",
+        "Logo and brand elements"
+      ]
+    },
+    "dark": {
+      "name": "Pulse Dark",
+      "description": "Deep color representing data intelligence and structural elements",
+      "scale": {
+        "50": "#F5F7F8",
+        "100": "#E8EBED",
+        "200": "#D1D7DB",
+        "300": "#A3B2BA",
+        "400": "#758D99",
+        "500": "#34484E",
+        "600": "#26363B",
+        "700": "#1E2B2F",
+        "800": "#171F22",
+        "900": "#0F1415"
+      },
+      "usage": [
+        "Primary text (light mode)",
+        "Headers and labels",
+        "Dark backgrounds",
+        "Structural UI elements"
+      ]
+    },
+    "insight": {
+      "name": "Insight Orange",
+      "description": "Accent color for alerts, warnings, and actionable insights",
+      "scale": {
+        "50": "#FFF3E0",
+        "100": "#FFE0B2",
+        "200": "#FFCC80",
+        "300": "#FFB74D",
+        "400": "#FFA726",
+        "500": "#FF9800",
+        "600": "#FB8C00",
+        "700": "#F57C00",
+        "800": "#EF6C00",
+        "900": "#E65100"
+      },
+      "usage": ["Alert notifications", "Warning states", "Insight highlights", "Anomaly indicators"]
+    },
+    "data": {
+      "name": "Data Blue",
+      "description": "Accent color for connectivity and data flow",
+      "scale": {
+        "50": "#E3F2FD",
+        "100": "#BBDEFB",
+        "200": "#90CAF9",
+        "300": "#64B5F6",
+        "400": "#42A5F5",
+        "500": "#2196F3",
+        "600": "#1E88E5",
+        "700": "#1976D2",
+        "800": "#1565C0",
+        "900": "#0D47A1"
+      },
+      "usage": ["Data connections", "Information badges", "Link states", "Data source indicators"]
+    },
+    "correlation": {
+      "name": "Correlation Violet",
+      "description": "Accent color for relationships and AI processing",
+      "scale": {
+        "50": "#F3E5F5",
+        "100": "#E1BEE7",
+        "200": "#CE93D8",
+        "300": "#BA68C8",
+        "400": "#9575CD",
+        "500": "#7E57C2",
+        "600": "#7B1FA2",
+        "700": "#6A1B9A",
+        "800": "#4A148C",
+        "900": "#38006B"
+      },
+      "usage": [
+        "ML model indicators",
+        "Relationship visualizations",
+        "AI-powered features",
+        "Pattern detection UI"
+      ]
+    },
+    "semantic": {
+      "success": {
+        "value": "#4CAF7A",
+        "description": "Successful operations, healthy systems, positive confirmations"
+      },
+      "warning": {
+        "value": "#FFA726",
+        "description": "Warnings, medium-priority alerts, caution states"
+      },
+      "error": {
+        "value": "#EF5350",
+        "description": "Errors, critical alerts, destructive actions, failed states"
+      },
+      "info": {
+        "value": "#42A5F5",
+        "description": "Informational messages, tips, neutral notifications"
+      }
+    },
+    "neutrals": {
+      "light": {
+        "background": "#F8FAFB",
+        "surface": "#FFFFFF",
+        "border": "#E5E7EB",
+        "text-muted": "#6B7280",
+        "text-primary": "#1E2B2F",
+        "text-secondary": "#34484E"
+      },
+      "dark": {
+        "background": "#0F172A",
+        "surface": "#162235",
+        "border": "#24324A",
+        "text-muted": "#94A3B8",
+        "text-primary": "#F8FAFB",
+        "text-secondary": "#E8EBED"
+      }
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "primary": "Inter",
+      "fallback": "system-ui, -apple-system, sans-serif"
+    },
+    "fontWeights": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "scale": {
+      "h1": {
+        "fontSize": "32px",
+        "lineHeight": "40px",
+        "fontWeight": 600,
+        "usage": "Main page titles, primary headlines"
+      },
+      "h2": {
+        "fontSize": "24px",
+        "lineHeight": "32px",
+        "fontWeight": 600,
+        "usage": "Section headings, card titles"
+      },
+      "h3": {
+        "fontSize": "20px",
+        "lineHeight": "28px",
+        "fontWeight": 500,
+        "usage": "Subsections, panel headers"
+      },
+      "h4": {
+        "fontSize": "16px",
+        "lineHeight": "24px",
+        "fontWeight": 500,
+        "usage": "Component headers, list section titles"
+      },
+      "body-lg": {
+        "fontSize": "15px",
+        "lineHeight": "22px",
+        "fontWeight": 400,
+        "usage": "Emphasized body text, introductory paragraphs"
+      },
+      "body": {
+        "fontSize": "14px",
+        "lineHeight": "20px",
+        "fontWeight": 400,
+        "usage": "Primary body text, table content, form inputs"
+      },
+      "body-sm": {
+        "fontSize": "13px",
+        "lineHeight": "18px",
+        "fontWeight": 400,
+        "usage": "Dense information, secondary descriptions"
+      },
+      "label": {
+        "fontSize": "12px",
+        "lineHeight": "16px",
+        "fontWeight": 500,
+        "usage": "Form labels, data labels, UI element labels"
+      },
+      "caption": {
+        "fontSize": "11px",
+        "lineHeight": "14px",
+        "fontWeight": 400,
+        "usage": "Timestamps, metadata, helper text, footnotes"
+      }
+    }
+  },
+  "spacing": {
+    "xs": "4px",
+    "sm": "8px",
+    "md": "16px",
+    "lg": "24px",
+    "xl": "32px",
+    "2xl": "48px"
+  },
+  "borderRadius": {
+    "sm": "4px",
+    "md": "8px",
+    "lg": "12px",
+    "xl": "16px",
+    "full": "9999px"
+  },
+  "shadows": {
+    "light": {
+      "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+      "md": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+      "lg": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+      "xl": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+    },
+    "dark": {
+      "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.3)",
+      "md": "0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3)",
+      "lg": "0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3)",
+      "xl": "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)"
+    }
+  },
+  "accessibility": {
+    "contrastRatios": {
+      "normalText": "4.5:1",
+      "largeText": "3:1",
+      "uiComponents": "3:1"
+    },
+    "focusIndicator": {
+      "width": "2px",
+      "style": "solid",
+      "color": "primary-400"
+    }
+  }
+}

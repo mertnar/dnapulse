@@ -186,6 +186,24 @@ func (e *Executor) GetConfig() *model.PipelineConfig {
 	return &configCopy
 }
 
+// SetESClientAndIndex sets Elasticsearch client and index for persist_es rules
+func (e *Executor) SetESClientAndIndex(client interface{}, index string) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	for _, rule := range e.rules {
+		if rule.Type() == "persist_es" {
+			if persistRule, ok := rule.(interface {
+				SetClient(interface{})
+				SetIndex(string)
+			}); ok {
+				persistRule.SetClient(client)
+				persistRule.SetIndex(index)
+			}
+		}
+	}
+}
+
 // validateSchema validates the configuration against the JSON schema
 func (e *Executor) validateSchema(config *model.PipelineConfig) error {
 	// Read schema file

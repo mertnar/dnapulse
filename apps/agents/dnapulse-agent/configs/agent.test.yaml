@@ -1,0 +1,46 @@
+agent:
+  name: test-agent-01
+  type: syslog
+  version: 1.0.0
+  description: Test agent instance
+  platform: linux
+  hostname: dna-sol-main
+  ip_address: ''
+  log_level: info
+  log_file: /tmp/dnapulse-agent-test.log
+ingestion:
+  url: http://localhost:19071
+  api_key: dna_test_1769404433948_ogxnouvkub
+  timeout: 30s
+  retry_attempts: 3
+  retry_delay: 5s
+  batch_size: 100
+  flush_interval: 10s
+collection:
+  enabled: true
+  interval: 30s
+  sources:
+    - type: file
+      enabled: true
+      path: /var/log/syslog
+      fields:
+        priority: info
+        service: syslog
+  max_batch_size: 1000
+  buffer_size: 10000
+metadata:
+  data_source_id: 6976f849cc9d4f87ab3a3af1
+  organization_id: ''
+  environment: test
+  region: local
+  tags:
+    environment: development
+    test: 'true'
+  custom_fields:
+    location: local-dev
+sync:
+  enabled: false
+  interval: 5m0s
+  url: http://localhost:19071/api/v1/agent/config
+  auto_apply: false
+  backup_configs: true

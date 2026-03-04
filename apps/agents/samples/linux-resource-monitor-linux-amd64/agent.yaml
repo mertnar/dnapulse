@@ -1,0 +1,22 @@
+# DNA Pulse Agent Configuration
+# Edit the API key below before running the agent.
+
+agent:
+  name: 'linux-server-01'
+  type: 'linux'
+  type_id: '698b05a982b6bd7cbd66d9bf' # Agent Type ID (required for registration)
+  version: '1.0.0'
+  platform: 'linux'
+
+ingestion:
+  url: 'http://localhost:19071'
+  api_key: 'dna_1771937981453_rfccvw8rugo'
+
+collection:
+  enabled: true
+  interval: 30s
+  sources:
+    - type: 'system_metrics'
+      enabled: true
+# After editing this file, you can register the agent with:
+#   ./linux-resource-monitor-linux-amd64 -config ./agent.yaml -register

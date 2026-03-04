@@ -1,0 +1,265 @@
+services:
+  # Kafka (using Redpanda for simplicity)
+  kafka:
+    image: redpandadata/redpanda:v23.3.5
+    container_name: dnapulse-kafka
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092
+      - --advertise-kafka-addr internal://kafka:9092
+      - --pandaproxy-addr internal://0.0.0.0:8082
+      - --advertise-pandaproxy-addr internal://kafka:8082
+      - --schema-registry-addr internal://0.0.0.0:8081
+      - --rpc-addr kafka:33145
+      - --advertise-rpc-addr kafka:33145
+      - --smp 1
+      - --memory 1G
+      - --mode dev-container
+      - --default-log-level=info
+    ports:
+      - '9092:9092' # Kafka protocol
+      - '8081:8081' # Schema registry
+      - '8082:8082' # Pandaproxy (REST API)
+      - '9644:9644' # Admin API
+    healthcheck:
+      test: ['CMD-SHELL', "rpk cluster health | grep 'Healthy:.*true' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dnapulse-dev
+
+  # MongoDB (using host MongoDB for now - if you want containerized, uncomment below)
+  # mongo:
+  #   image: mongo:7.0
+  #   container_name: dnapulse-mongo
+  #   ports:
+  #     - '27018:27017'  # Use different port to avoid conflict
+  #   environment:
+  #     - MONGO_INITDB_DATABASE=dna-pulse
+  #   volumes:
+  #     - mongo-dev-data:/data/db
+  #   healthcheck:
+  #     test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
+  #   networks:
+  #     - dnapulse-dev
+
+  # Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: dnapulse-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+    ports:
+      - '9200:9200'
+      - '9300:9300'
+    volumes:
+      - es-dev-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:9200/_cluster/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - dnapulse-dev
+
+  # Kibana (optional, for ES visualization)
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: dnapulse-kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - '5601:5601'
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:5601/api/status || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - dnapulse-dev
+
+  # Ingestion Service
+  ingestion:
+    build:
+      context: services/ingestion
+      dockerfile: Dockerfile
+    container_name: dnapulse-ingestion
+    ports:
+      - '19071:19071' # HTTP port
+      - '9090:9090' # gRPC port
+      - '9091:9091' # Metrics port
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_TOPIC=ingestion.raw.v1
+      - HTTP_PORT=19071
+      - GRPC_PORT=9090
+      - MONGO_URL=${MONGO_URL}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX=ingestion-events
+      - METRICS_PORT=9091
+      - JWT_SECRET=your-secret-key-change-in-production
+      - DISABLE_JWT_VALIDATION=true
+      - RATE_LIMIT=100
+      - ENABLE_CONFIG_SERVICE=false
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://localhost:19071/health || exit 1',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dnapulse-dev
+
+  # Processing Service (Event Normalization)
+  processing:
+    build:
+      context: .
+      dockerfile: services/processing/Dockerfile
+    container_name: dnapulse-processing
+    ports:
+      - '8080:8080' # HTTP port for dev endpoint
+    environment:
+      - SERVICE_NAME=processing
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_INPUT_TOPIC=ingestion.raw.v1
+      - KAFKA_OUTPUT_TOPIC=events.normalized.v1
+      - KAFKA_DLQ_TOPIC=processing.dlq
+      - KAFKA_GROUP_ID=processing-service
+      - MONGO_URI=${MONGO_URL}
+      - MONGO_DATABASE=dna-pulse
+      - ELASTIC_ADDRESSES=http://elasticsearch:9200
+      - HTTP_PORT=8080
+      - SCHEMA_PATH=/app/dev.pipeline.json
+      - PIPELINES_DIR=/app/pipelines
+    volumes:
+      - processing-pipelines:/app/pipelines
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      ingestion:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dnapulse-dev
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    build:
+      context: apps/webapp/backend
+      dockerfile: Dockerfile
+    container_name: dnapulse-backend
+    ports:
+      - '3001:3001'
+    volumes:
+      # Mount agent binaries for download
+      - ./apps/agents/dnapulse-agent/build:/app/agent-binaries:ro
+    environment:
+      - NODE_ENV=production
+      - BYPASS_AUTH=true
+      - DEFAULT_ORG_ID=69a2d95573bdb20e4ef787de
+      - PORT=3001
+      - MONGO_URL=${MONGO_URL}
+      - MONGO_DB_NAME=dna-pulse
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dnapulse-dev
+    restart: unless-stopped
+
+  # Rule Engine Service
+  rule-engine:
+    build:
+      context: services/rule-engine
+      dockerfile: Dockerfile
+    container_name: dnapulse-rule-engine
+    environment:
+      - MONGO_URL=${MONGO_URL}
+      - MONGO_DB_NAME=dna-pulse
+      - SCHEDULE_INTERVAL_SEC=60
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    networks:
+      - dnapulse-dev
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: apps/webapp/frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api
+        - VITE_INGESTION_URL=http://localhost:19071
+    container_name: dnapulse-frontend
+    ports:
+      - '5173:80'
+    depends_on:
+      - backend
+    networks:
+      - dnapulse-dev
+    restart: unless-stopped
+
+networks:
+  dnapulse-dev:
+    driver: bridge
+
+volumes:
+  es-dev-data:
+    driver: local
+  processing-pipelines:
+    driver: local
+  # mongo-dev-data:
+  #   driver: local

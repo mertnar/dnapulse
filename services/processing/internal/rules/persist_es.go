@@ -26,8 +26,10 @@ func NewPersistESRule(args map[string]interface{}) (pipeline.Rule, error) {
 }
 
 // SetClient sets the Elasticsearch client (for dependency injection)
-func (r *PersistESRule) SetClient(client *elasticsearch.Client) {
-	r.client = client
+func (r *PersistESRule) SetClient(client interface{}) {
+	if esClient, ok := client.(*elasticsearch.Client); ok {
+		r.client = esClient
+	}
 }
 
 // SetIndex sets the index name
@@ -48,15 +50,20 @@ func (r *PersistESRule) Apply(ctx context.Context, event *model.Event, cfg *mode
 		return event, fmt.Errorf("elasticsearch client not configured")
 	}
 
-	// Prepare document
+	// Prepare document with all metadata
 	doc := map[string]interface{}{
-		"event_id":   event.EventID,
-		"tenant_id":  event.TenantID,
-		"timestamp":  event.Timestamp,
-		"kind":       string(event.Kind),
-		"source":     event.Source,
-		"payload":    event.Payload,
-		"attributes": event.Attributes,
+		"event_id":        event.EventID,
+		"organization_id": event.OrganizationID,
+		"data_source_id":  event.DataSourceID,
+		"agent_id":        event.AgentID,
+		"tenant_id":       event.TenantID,
+		"type":            event.Type,
+		"@timestamp":      event.Timestamp,
+		"ingested_at":     event.IngestedAt,
+		"kind":            string(event.Kind),
+		"source":          event.Source,
+		"payload":         event.Payload,
+		"attributes":      event.Attributes,
 	}
 
 	// Marshal to JSON
@@ -80,6 +87,12 @@ func (r *PersistESRule) Apply(ctx context.Context, event *model.Event, cfg *mode
 	defer res.Body.Close()
 
 	if res.IsError() {
+		// Read error body for detailed error message
+		var errBody map[string]interface{}
+		if err := json.NewDecoder(res.Body).Decode(&errBody); err == nil {
+			errJSON, _ := json.Marshal(errBody)
+			return event, fmt.Errorf("elasticsearch error: %s - %s", res.Status(), string(errJSON))
+		}
 		return event, fmt.Errorf("elasticsearch error: %s", res.Status())
 	}
 

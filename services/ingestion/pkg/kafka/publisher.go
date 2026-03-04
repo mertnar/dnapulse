@@ -17,11 +17,12 @@ type EventPublisher struct {
 // NewEventPublisher creates a new Kafka event publisher
 func NewEventPublisher(brokers []string, topic string) *EventPublisher {
 	writer := &kafka.Writer{
-		Addr:         kafka.TCP(brokers...),
-		Topic:        topic,
-		Balancer:     &kafka.LeastBytes{},
-		BatchTimeout: 10 * time.Millisecond,
-		BatchSize:    100,
+		Addr:                   kafka.TCP(brokers...),
+		Topic:                  topic,
+		Balancer:               &kafka.LeastBytes{},
+		BatchTimeout:           10 * time.Millisecond,
+		BatchSize:              100,
+		AllowAutoTopicCreation: true, // Auto-create topics if they don't exist
 	}
 
 	return &EventPublisher{

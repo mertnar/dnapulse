@@ -138,16 +138,16 @@ services:
       dockerfile: services/ingestion/Dockerfile
     container_name: dna-ingestion
     ports:
-      - '8081:8080' # HTTP port
+      - '19071:19071' # HTTP port
       - '9090:9090' # gRPC port
     environment:
       - CONFIG_URL=http://config:8080
       - CONFIG_SCOPE=ingestion
       - KAFKA_BROKERS=bus:9092
       - KAFKA_TOPIC=ingestion.raw.v1
-      - HTTP_PORT=8080
+      - HTTP_PORT=19071
       - GRPC_PORT=9090
-      - MONGO_URL=mongodb://admin:admin123@mongo:27017/ingestion?authSource=admin
+      - MONGO_URL=mongodb://admin:admin123@mongo:27017/dna-pulse?authSource=admin
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - ELASTICSEARCH_INDEX=ingestion-events
       - METRICS_PORT=9091
@@ -158,7 +158,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test:
-        ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://0.0.0.0:8080/health || exit 1']
+        ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://0.0.0.0:19071/health || exit 1']
       interval: 15s
       timeout: 10s
       retries: 5
@@ -188,6 +188,9 @@ services:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - ELASTICSEARCH_INDEX=processing-events
       - METRICS_PORT=9092
+      - PIPELINES_DIR=/app/pipelines
+    volumes:
+      - processing-pipelines:/app/pipelines
     depends_on:
       bus:
         condition: service_healthy
@@ -297,3 +300,4 @@ volumes:
   es-data:
   prometheus-data:
   grafana-data:
+  processing-pipelines:

@@ -41,8 +41,13 @@ func main() {
 		logger.Fatal("failed to initialize application", zap.Error(err))
 	}
 
-	// Start SSE watch for config updates
-	application.StartSSEWatch(ctx)
+	// Start SSE watch for config updates (only if config service is available)
+	application.StartSSEWatch(ctx, cfg.ConfigURL)
+
+	// Load model-specific pipelines
+	if err := application.LoadModelPipelines(ctx); err != nil {
+		logger.Warn("failed to load model pipelines", zap.Error(err))
+	}
 
 	// Setup HTTP server
 	router := chi.NewRouter()
@@ -114,36 +119,67 @@ func ConsumeLoop(ctx context.Context, app *app.App, logger *zap.Logger) {
 				continue
 			}
 
-			// Process event
-			start := time.Now()
-			processed, err := app.Executor.Execute(ctx, event)
-			duration := time.Since(start).Milliseconds()
+			// Find the data model for this event's data source to get the correct index
+			var targetIndex string
 
-			// Store processed event in MongoDB
-			if app.MongoStore != nil {
-				processedEvent := &mongostore.ProcessedEvent{
-					EventID:  event.EventID,
-					TenantID: event.TenantID,
-					OriginalEvent: map[string]interface{}{
-						"event_id":   event.EventID,
-						"tenant_id":  event.TenantID,
-						"kind":       event.Kind,
-						"source":     event.Source,
-						"payload":    event.Payload,
-						"attributes": event.Attributes,
-					},
-					ProcessedEvent: map[string]interface{}{
-						"event_id":   processed.EventID,
-						"tenant_id":  processed.TenantID,
-						"kind":       processed.Kind,
-						"source":     processed.Source,
-						"payload":    processed.Payload,
-						"attributes": processed.Attributes,
-					},
-					ProcessingRules: []string{"normalization", "enrichment"}, // TODO: Get from executor
-					Duration:        duration,
-					Status:          "success",
+			if app.DataModelRegistry != nil && event.DataSourceID != "" {
+				dataModel, err := app.DataModelRegistry.GetModelByDataSourceID(ctx, event.DataSourceID)
+				if err != nil {
+					logger.Warn("failed to find data model for event",
+						zap.String("event_id", event.EventID),
+						zap.String("data_source_id", event.DataSourceID),
+						zap.Error(err))
+					targetIndex = "dna-events-default"
+				} else {
+					targetIndex = dataModel.ELK.IndexName
 				}
+			} else {
+				targetIndex = "dna-events-default"
+			}
+
+			// Set the target index for persist_es rule
+			if app.ESClient != nil {
+				app.Executor.SetESClientAndIndex(app.ESClient, targetIndex)
+			}
+
+		// Process event
+		start := time.Now()
+		processed, err := app.Executor.Execute(ctx, event)
+		duration := time.Since(start).Milliseconds()
+
+		// Handle processing errors
+		if err != nil {
+			logger.Error("failed to process event",
+				zap.String("event_id", event.EventID),
+				zap.Error(err))
+			continue
+		}
+
+		// Store processed event in MongoDB
+		if app.MongoStore != nil {
+			processedEvent := &mongostore.ProcessedEvent{
+				EventID:  event.EventID,
+				TenantID: event.TenantID,
+				OriginalEvent: map[string]interface{}{
+					"event_id":   event.EventID,
+					"tenant_id":  event.TenantID,
+					"kind":       event.Kind,
+					"source":     event.Source,
+					"payload":    event.Payload,
+					"attributes": event.Attributes,
+				},
+				ProcessedEvent: map[string]interface{}{
+					"event_id":   processed.EventID,
+					"tenant_id":  processed.TenantID,
+					"kind":       processed.Kind,
+					"source":     processed.Source,
+					"payload":    processed.Payload,
+					"attributes": processed.Attributes,
+				},
+				ProcessingRules: []string{"normalization", "enrichment"}, // TODO: Get from executor
+				Duration:        duration,
+				Status:          "success",
+			}
 
 				if err != nil {
 					processedEvent.Status = "error"
@@ -308,7 +344,8 @@ func LoadConfig() app.Config {
 		JaegerEndpoint: GetEnv("JAEGER_ENDPOINT", ""),
 
 		// Pipeline
-		SchemaPath: GetEnv("SCHEMA_PATH", "contracts/schemas/processing.rules.schema.json"),
+		SchemaPath:        GetEnv("SCHEMA_PATH", "contracts/schemas/processing.rules.schema.json"),
+		PipelineConfigPath: GetEnv("PIPELINE_CONFIG_PATH", "/app/dev.pipeline.json"),
 	}
 }
 

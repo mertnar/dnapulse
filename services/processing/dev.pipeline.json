@@ -10,6 +10,15 @@
       "on_error": "skip"
     },
     {
+      "name": "live_monitor_normalize",
+      "type": "normalize_live_monitor",
+      "args": {
+        "severity_field_hints": ["level", "severity", "priority", "log_level"],
+        "flatten_prefixes": ["cpu", "memory", "disk", "network", "process"]
+      },
+      "on_error": "skip"
+    },
+    {
       "name": "normalize_standard_fields",
       "type": "normalize_fields",
       "args": {
@@ -68,12 +77,10 @@
       "on_error": "skip"
     },
     {
-      "name": "validate_payload",
-      "type": "validate_schema",
-      "args": {
-        "schema_url": "https://example.com/event-schema.json"
-      },
-      "on_error": "skip"
+      "name": "persist_to_elasticsearch",
+      "type": "persist_es",
+      "args": {},
+      "on_error": "fail"
     }
   ],
   "persist": {

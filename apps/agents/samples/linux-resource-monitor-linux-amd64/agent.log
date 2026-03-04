@@ -1,0 +1,54 @@
+2026/02/12 16:34:30 main.go:79: DNA Pulse Agent v1.0.0 starting...
+2026/02/12 16:34:30 main.go:80: Agent: linux-server-01 (type: linux)
+2026/02/12 16:34:30 main.go:81: Platform: linux, Hostname: dna-sol-main
+2026/02/12 16:34:30 main.go:82: Ingestion URL: http://localhost:19071
+2026/02/12 16:34:30 main.go:105: Registering agent...
+2026/02/12 16:34:30 main.go:106: Note: Schema will be automatically discovered when agent sends first data
+2026/02/12 16:34:31 sender.go:121: Agent registered successfully: AgentID=698dd6e7a2deb68216f22c2a, DataSourceID=698c6d433bae0559104a98a2, ConfigVersion=1
+2026/02/12 16:34:31 main.go:123: Received config from server (version 1)
+2026/02/12 16:34:31 main.go:354: Merged 1 collection sources from server config
+2026/02/12 16:34:31 main.go:358: Merged server config version 1
+2026/02/12 16:34:31 main.go:153: Config saved to /home/mert/.dnapulse/agent.yaml
+2026/02/12 16:34:31 main.go:162: Agent registered successfully
+2026/02/12 16:34:31 collector.go:45: Starting data collection with 1 sources
+2026/02/12 16:34:31 collector.go:57: Data collection started
+2026/02/12 16:34:31 sync.go:57: Config sync is disabled
+2026/02/12 16:34:31 main.go:211: Agent is running. Press Ctrl+C to stop.
+2026/02/12 16:34:31 collector.go:75: Starting collection from system_metrics source: system_metrics
+2026/02/12 16:35:01 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.8%, Disk=3 partitions
+2026/02/12 16:35:13 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:35:31 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.6%, Disk=3 partitions
+2026/02/12 16:35:43 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:36:01 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.7%, Disk=3 partitions
+2026/02/12 16:36:13 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:36:31 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.7%, Disk=3 partitions
+2026/02/12 16:36:43 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:37:01 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.7%, Disk=3 partitions
+2026/02/12 16:37:13 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:37:31 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.7%, Disk=3 partitions
+2026/02/12 16:37:43 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:38:01 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.7%, Disk=3 partitions
+2026/02/12 16:38:13 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:38:31 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.7%, Disk=3 partitions
+2026/02/12 16:38:43 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:39:01 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.7%, Disk=3 partitions
+2026/02/12 16:39:13 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:39:31 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.8%, Disk=3 partitions
+2026/02/12 16:39:43 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:40:01 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.8%, Disk=3 partitions
+2026/02/12 16:40:13 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:40:31 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.8%, Disk=3 partitions
+2026/02/12 16:40:43 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:41:01 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.8%, Disk=3 partitions
+2026/02/12 16:41:13 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:41:31 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.8%, Disk=3 partitions
+2026/02/12 16:41:43 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:42:01 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.8%, Disk=3 partitions
+2026/02/12 16:42:13 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:42:31 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.8%, Disk=3 partitions
+2026/02/12 16:42:43 sender.go:254: Pulse sent: 1 accepted, 0 rejected
+2026/02/12 16:43:01 collector.go:367: Collected system metrics: CPU=2.0%, Mem=20.8%, Disk=3 partitions
+2026/02/12 16:43:05 main.go:215: Received signal: terminated. Shutting down...
+2026/02/12 16:43:05 collector.go:62: Stopping data collection...
+2026/02/12 16:43:05 collector.go:65: Data collection stopped
+2026/02/12 16:43:05 main.go:223: Agent stopped

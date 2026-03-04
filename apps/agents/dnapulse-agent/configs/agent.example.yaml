@@ -1,0 +1,91 @@
+# DNA Pulse Agent Configuration
+# This file contains all configuration settings for the agent
+
+agent:
+  # Agent identification
+  name: 'production-server-01'
+  type: 'syslog' # Types: syslog, windows-event, custom-app, docker, kubernetes
+  version: '1.0.0'
+  description: 'Production web server logs'
+
+  # Platform (auto-detected if not specified)
+  platform: 'linux' # linux, windows, macos, docker
+  hostname: '' # Auto-detected if empty
+  ip_address: '' # Auto-detected if empty
+
+  # Logging
+  log_level: 'info' # debug, info, warn, error
+  log_file: '/var/log/dnapulse-agent/agent.log'
+
+ingestion:
+  # Ingestion service connection
+  url: 'http://localhost:19071'
+  api_key: 'YOUR_API_KEY_HERE' # Get from web app
+
+  # Connection settings
+  timeout: 30s
+  retry_attempts: 3
+  retry_delay: 5s
+
+  # Batching
+  batch_size: 100 # Events per batch
+  flush_interval: 10s # Force flush interval
+
+collection:
+  # Data collection settings
+  enabled: true
+  interval: 30s # How often to collect data
+  max_batch_size: 1000
+  buffer_size: 10000
+
+  # Data sources to collect from
+  sources:
+    - type: 'file'
+      enabled: true
+      path: '/var/log/syslog'
+      filter: ''
+      fields:
+        service: 'syslog'
+        priority: 'info'
+
+    - type: 'file'
+      enabled: true
+      path: '/var/log/auth.log'
+      filter: ''
+      fields:
+        service: 'auth'
+        priority: 'security'
+
+    - type: 'command'
+      enabled: false
+      command: 'df -h'
+      fields:
+        metric_type: 'disk_usage'
+
+metadata:
+  # Data source metadata (set after registration)
+  data_source_id: ''
+  organization_id: ''
+
+  # Environment info
+  environment: 'production' # prod, staging, dev
+  region: 'us-east-1'
+
+  # Custom tags
+  tags:
+    team: 'platform'
+    application: 'web-api'
+    tier: 'backend'
+
+  # Custom fields (will be added to all events)
+  custom_fields:
+    datacenter: 'dc1'
+    rack: 'r42'
+
+sync:
+  # Configuration sync with web app
+  enabled: true
+  interval: 5m # How often to check for config updates
+  url: 'http://localhost:19071/api/v1/agent/config'
+  auto_apply: false # Automatically apply config changes (requires restart)
+  backup_configs: true # Backup old configs before applying new ones

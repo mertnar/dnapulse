@@ -1,0 +1,12 @@
+{
+  "name": "dnapulse-scripts",
+  "version": "1.0.0",
+  "description": "Utility scripts for DNA Pulse platform",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.6.1",
+    "mongodb": "^6.3.0"
+  }
+}

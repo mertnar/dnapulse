@@ -179,3 +179,13 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Build artifacts
+apps/agents/dnapulse-agent/build/
+services/processing/bin/
+services/ingestion/bin/
+apps/agents/samples/*/linux-resource-monitor-*
+apps/agents/samples/*/*.log
+
+# Large assets
+apps/webapp/frontend/public/*.png

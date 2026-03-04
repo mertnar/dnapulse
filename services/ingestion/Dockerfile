@@ -4,12 +4,12 @@ FROM golang:1.24-alpine AS builder
 WORKDIR /build
 
 # Copy go mod files
-COPY services/ingestion/go.mod services/ingestion/go.sum ./
-COPY services/ingestion/go-sdk ./go-sdk
+COPY go.mod go.sum ./
+COPY go-sdk ./go-sdk
 RUN go mod download
 
 # Copy source code
-COPY services/ingestion ./
+COPY . ./
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o ingestion ./cmd/ingestion
