@@ -350,6 +350,26 @@ export const liveMonitorService = {
     }
   },
 
+  async updateSavedView(viewId: string, updates: any): Promise<any> {
+    try {
+      const res = await fetch(`${BACKEND_URL}/views/${viewId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(updates),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(errorData.error || `Update view failed: ${res.statusText}`);
+      }
+
+      return await res.json();
+    } catch (error) {
+      console.error('Error updating saved view:', error);
+      throw error;
+    }
+  },
+
   async deleteSavedView(viewId: string): Promise<boolean> {
     try {
       const res = await fetch(`${BACKEND_URL}/views/${viewId}`, {

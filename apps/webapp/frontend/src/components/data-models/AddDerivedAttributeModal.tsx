@@ -62,7 +62,7 @@ export function AddDerivedAttributeModal({
     () => existingAttributes.filter((a) => sourceAttributeIds.includes(a.id)),
     [existingAttributes, sourceAttributeIds]
   );
-  const sourcePaths = sourceAttrs.map((a) => a.name);
+  const sourcePaths = sourceAttrs.map((a) => a.path || a.name);
 
   const expressionPreview = useMemo(() => {
     if (mode === 'advanced') return advancedExpression || '(enter expression)';
@@ -134,6 +134,7 @@ export function AddDerivedAttributeModal({
 
     const outputType = mode === 'advanced' ? 'string' : (OPERATION_OUTPUT_TYPES[operation] || 'string');
     const payload: Omit<ModelAttribute, 'id'> = {
+      path: attrName,
       name: attrName,
       type: outputType,
       example_value: null,
@@ -242,7 +243,7 @@ export function AddDerivedAttributeModal({
                       onChange={() => toggleSource(attr.id)}
                       className="rounded border-gray-300"
                     />
-                    <span className="text-sm font-mono text-gray-900 dark:text-white">{attr.name}</span>
+                    <span className="text-sm font-mono text-gray-900 dark:text-white">{attr.path || attr.name}</span>
                     <span className="text-xs text-gray-500">({attr.type})</span>
                   </label>
                 ))}

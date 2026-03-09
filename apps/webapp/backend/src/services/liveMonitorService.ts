@@ -236,13 +236,8 @@ export const liveMonitorService = {
    * Search events with pagination using Elasticsearch
    */
   async searchEvents(params: SearchParams): Promise<SearchResult> {
-    // If no index specified, return empty results
-    if (!params.index) {
-      return {
-        events: [],
-        total_estimate: 0,
-      };
-    }
+    // If no index specified, search across all dnapulse indices
+    const searchIndex = params.index || 'dnapulse-*';
 
     const limit = params.limit || 100;
     const from = params.cursor ? parseInt(params.cursor, 10) : 0;
@@ -274,7 +269,7 @@ export const liveMonitorService = {
 
     try {
       const result = await searchELK({
-        index: params.index,
+        index: searchIndex,
         query: params.query,
         time_range: timeRange,
         size: limit,
@@ -309,10 +304,7 @@ export const liveMonitorService = {
    * Get histogram aggregation grouped by severity using Elasticsearch
    */
   async getAggregation(params: AggParams & { index?: string }): Promise<HistogramBucket[]> {
-    // If no index specified, return empty histogram
-    if (!params.index) {
-      return [];
-    }
+    const searchIndex = params.index || 'dnapulse-*';
 
     // Determine time range
     let from: Date;
@@ -334,7 +326,7 @@ export const liveMonitorService = {
 
     try {
       const aggs = await getELKHistogram(
-        params.index,
+        searchIndex,
         {
           from: from.toISOString(),
           to: to.toISOString(),

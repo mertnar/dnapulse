@@ -1,6 +1,20 @@
 import { getCollection, Collections } from '../lib/mongodb.js';
 import { ObjectId } from 'mongodb';
 
+export type VisualizationType = 'table' | 'line' | 'bar' | 'pie' | 'area' | 'scatter' | 'heatmap';
+
+export interface ChartConfig {
+  type: VisualizationType;
+  xAxis?: string;
+  yAxis?: string | string[];
+  groupBy?: string;
+  aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  colors?: string[];
+  stacked?: boolean;
+  showLegend?: boolean;
+  showGrid?: boolean;
+}
+
 export interface SavedView {
   id?: string;
   _id?: ObjectId;
@@ -12,6 +26,7 @@ export interface SavedView {
   selected_columns: string[];
   pinned_filters: Record<string, any>;
   datasource_scope?: string[];
+  visualization?: ChartConfig;
   created_at?: Date;
   updated_at?: Date;
   created_by?: string;
@@ -63,6 +78,7 @@ export const savedViewsService = {
       selected_columns: v.selected_columns,
       pinned_filters: v.pinned_filters,
       datasource_scope: v.datasource_scope?.map((id: ObjectId) => id.toString()),
+      visualization: v.visualization,
       created_at: v.created_at,
       updated_at: v.updated_at,
       created_by: v.created_by,
@@ -91,6 +107,7 @@ export const savedViewsService = {
       selected_columns: view.selected_columns,
       pinned_filters: view.pinned_filters,
       datasource_scope: view.datasource_scope?.map((id: ObjectId) => id.toString()),
+      visualization: view.visualization,
       created_at: view.created_at,
       updated_at: view.updated_at,
       created_by: view.created_by,
@@ -140,6 +157,7 @@ export const savedViewsService = {
       selected_columns: result.selected_columns,
       pinned_filters: result.pinned_filters,
       datasource_scope: result.datasource_scope?.map((id: ObjectId) => id.toString()),
+      visualization: result.visualization,
       created_at: result.created_at,
       updated_at: result.updated_at,
       created_by: result.created_by,

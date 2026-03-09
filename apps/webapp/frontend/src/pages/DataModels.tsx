@@ -131,9 +131,36 @@ export function DataModels() {
     console.log('Create new model');
   };
 
-  const handleUpdateModel = (updates: Partial<DataModelExtended>) => {
-    if (selectedModel) {
-      setSelectedModel({ ...selectedModel, ...updates });
+  const handleUpdateModel = async (updates: Partial<DataModelExtended>) => {
+    if (!selectedModel) return;
+
+    try {
+      // Update backend
+      const response = await fetch(`/api/data-models/${selectedModel.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update model');
+      }
+
+      const updatedModel = await response.json();
+
+      // Update local state
+      setSelectedModel({ ...selectedModel, ...updatedModel });
+
+      // Reload models list to reflect status change
+      await loadModels();
+
+      // Show success message if status changed
+      if (updates.status) {
+        console.log(`Model status updated to: ${updates.status}`);
+      }
+    } catch (error) {
+      console.error('Failed to update model:', error);
+      alert('Failed to update model. Please try again.');
     }
   };
 

@@ -18,6 +18,9 @@ import { Storage } from './pages/Storage';
 import { Authorization } from './pages/Authorization';
 import { AuditLogs } from './pages/AuditLogs';
 import { Settings } from './pages/Settings';
+import { Views } from './pages/Views';
+import { ViewDetail } from './pages/ViewDetail';
+import { ViewEdit } from './pages/ViewEdit';
 
 function App() {
   return (
@@ -38,6 +41,9 @@ function App() {
                       <Route path="/data-sources/:id" element={<DataSourceDetail />} />
                       <Route path="/live-monitor" element={<LiveMonitor />} />
                       <Route path="/detection" element={<DetectionInvestigation />} />
+                      <Route path="/views" element={<Views />} />
+                      <Route path="/views/:id" element={<ViewDetail />} />
+                      <Route path="/views/:id/edit" element={<ViewEdit />} />
                       <Route path="/agents" element={<AgentsNew />} />
                       <Route path="/agents-old" element={<Agents />} />
                       <Route path="/agents/:id" element={<AgentsNew />} />

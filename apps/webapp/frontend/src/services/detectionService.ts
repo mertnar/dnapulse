@@ -20,13 +20,30 @@ const getAuthHeaders = () => {
   return headers;
 };
 
+export type VisualizationType = 'table' | 'line' | 'bar' | 'pie' | 'area' | 'scatter' | 'heatmap';
+
+export interface ChartConfig {
+  type: VisualizationType;
+  xAxis?: string;
+  yAxis?: string | string[];
+  groupBy?: string;
+  aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  colors?: string[];
+  stacked?: boolean;
+  showLegend?: boolean;
+  showGrid?: boolean;
+}
+
 export interface SavedView {
   id: string;
   name: string;
+  description?: string;
   query: string;
   timeRange: '15m' | '1h' | '24h' | '7d';
   columns: string[];
   filters: Record<string, any>;
+  visualization?: ChartConfig;
+  datasourceScope?: string[];
   lastRunTime: string;
   linkedRulesCount: number;
   createdAt: string;
@@ -244,16 +261,18 @@ export const detectionService = {
     try {
       const views = await liveMonitorService.getSavedViews();
 
-      // Map backend format to DetectionInvestigation SavedView format
       return views.map((view: any) => ({
         id: view.id || view._id?.toString() || '',
         name: view.name || '',
+        description: view.description || '',
         query: view.query || '',
         timeRange: (view.time_preset || '1h') as '15m' | '1h' | '24h' | '7d',
         columns: view.selected_columns || [],
         filters: view.pinned_filters || {},
+        visualization: view.visualization || undefined,
+        datasourceScope: view.datasource_scope || [],
         lastRunTime: view.updated_at || view.created_at || new Date().toISOString(),
-        linkedRulesCount: 0, // TODO: Calculate from rules that reference this view
+        linkedRulesCount: 0,
         createdAt: view.created_at || new Date().toISOString(),
       }));
     } catch (error) {

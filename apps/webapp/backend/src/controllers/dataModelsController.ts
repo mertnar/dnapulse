@@ -5,15 +5,21 @@ import type { AuthRequest } from '../middleware/auth.js';
 export const dataModelsController = {
   async getAll(req: AuthRequest, res: Response) {
     try {
-      const { organization_id } = req.user!;
       const { type, status } = req.query;
 
-      const models = await dataModelsService.getAll(organization_id, {
-        type: type as string,
-        status: status as string,
-      });
+      // Use legacy method which returns all models from all organizations
+      const models = await dataModelsService.getDataModels();
 
-      res.json(models);
+      // Apply filters if provided
+      let filteredModels = models;
+      if (type) {
+        filteredModels = filteredModels.filter((m) => m.type === type);
+      }
+      if (status) {
+        filteredModels = filteredModels.filter((m) => m.status === status);
+      }
+
+      res.json(filteredModels);
     } catch (error: any) {
       console.error('Error getting data models:', error);
       res.status(500).json({ error: error.message });
@@ -22,10 +28,10 @@ export const dataModelsController = {
 
   async getById(req: AuthRequest, res: Response) {
     try {
-      const { organization_id } = req.user!;
       const { id } = req.params;
 
-      const model = await dataModelsService.getById(id, organization_id);
+      // Use the legacy method which finds the model's organization automatically
+      const model = await dataModelsService.getDataModelById(id);
 
       if (!model) {
         return res.status(404).json({ error: 'Model not found' });
@@ -57,13 +63,43 @@ export const dataModelsController = {
 
   async update(req: AuthRequest, res: Response) {
     try {
-      const { organization_id } = req.user!;
       const { id } = req.params;
 
-      const model = await dataModelsService.update(id, organization_id, req.body);
+      // Get model to find its organization
+      const existingModel = await dataModelsService.getDataModelById(id);
+      if (!existingModel) {
+        return res.status(404).json({ error: 'Model not found' });
+      }
+
+      const model = await dataModelsService.update(id, existingModel.organization_id, req.body);
 
       if (!model) {
         return res.status(404).json({ error: 'Model not found' });
+      }
+
+      // If status changed to active, ensure ELK mapping and reload processing service
+      if (req.body.status === 'active' && existingModel.status !== 'active') {
+        try {
+          await dataModelsService.updateElasticsearchMapping(model);
+          console.log(`Model activated: ${model.name}, ELK mapping updated`);
+
+          // Trigger processing service to reload models
+          const processingServiceUrl =
+            process.env.PROCESSING_SERVICE_URL || 'http://processing:8080';
+          try {
+            const response = await fetch(`${processingServiceUrl}/reload-models`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            if (response.ok) {
+              console.log('Processing service models reloaded');
+            }
+          } catch (reloadError) {
+            console.warn('Failed to trigger processing service reload:', reloadError);
+          }
+        } catch (error) {
+          console.error('Failed to update ELK mapping on activation:', error);
+        }
       }
 
       res.json(model);

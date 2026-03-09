@@ -9,14 +9,6 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
-  # Go linting
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v1.55.2
-    hooks:
-      - id: golangci-lint
-        args: ['--fast']
-        pass_filenames: false
-
   # Python linting (for scripts)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.9

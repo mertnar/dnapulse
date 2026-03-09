@@ -135,14 +135,15 @@ export const dataModelsService = {
   },
 
   /**
-   * Get active data model indices for index selection
+   * Get all data model indices for index selection (including draft)
    */
   async getActiveIndices(): Promise<DataModelIndex[]> {
     try {
       const models = await this.getDataModels();
-      return models.filter((m) => m.status === 'active' && m.index_name);
+      // Return all models with index names (both active and draft)
+      return models.filter((m) => m.index_name);
     } catch (error) {
-      console.error('Error fetching active indices:', error);
+      console.error('Error fetching indices:', error);
       return [];
     }
   },

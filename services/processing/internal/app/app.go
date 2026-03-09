@@ -15,6 +15,7 @@ import (
 	"github.com/dnasol/dna-platform/services/processing/internal/pipeline"
 	"github.com/dnasol/dna-platform/services/processing/internal/rules"
 	"github.com/dnasol/dna-platform/services/processing/internal/store"
+	"github.com/dnasol/dna-platform/services/processing/internal/transform"
 	"github.com/elastic/go-elasticsearch/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -35,10 +36,11 @@ type App struct {
 	EventPublisher *kafka.EventPublisher
 
 	// Storage
-	MongoClient *mongo.Client
-	ESClient    *elasticsearch.Client
-	MongoStore  *mongostore.Store
-	ESLogger    *eslogger.Logger
+	MongoClient    *mongo.Client
+	ESClient       *elasticsearch.Client
+	MongoStore     *mongostore.Store
+	ESLogger       *eslogger.Logger
+	MappingManager *eslogger.MappingManager
 
 	// Observability
 	Metrics *observability.Metrics
@@ -50,6 +52,9 @@ type App struct {
 
 	// Model-specific pipelines
 	ModelPipelines map[string]*pipeline.Executor
+
+	// Derived model transformer
+	DerivedTransformer *transform.DerivedModelTransformer
 }
 
 // Config holds application configuration
@@ -153,6 +158,10 @@ func New(ctx context.Context, cfg Config, logger *zap.Logger) (*App, error) {
 			esLogger := eslogger.NewLogger(cfg.ElasticAddresses[0], cfg.ElasticIndex, "processing")
 			app.ESLogger = esLogger
 			logger.Info("Elasticsearch logger initialized")
+
+			// Initialize Elasticsearch mapping manager
+			app.MappingManager = eslogger.NewMappingManager(esClient, logger)
+			logger.Info("Elasticsearch mapping manager initialized")
 		}
 	}
 
@@ -163,6 +172,15 @@ func New(ctx context.Context, cfg Config, logger *zap.Logger) (*App, error) {
 			logger.Warn("Failed to load data models", zap.Error(err))
 		} else {
 			logger.Info("Data model registry initialized")
+
+			// Ensure Elasticsearch mappings for all models
+			if app.MappingManager != nil {
+				if err := app.MappingManager.EnsureAllModelMappings(ctx, app.DataModelRegistry); err != nil {
+					logger.Warn("Failed to ensure Elasticsearch mappings", zap.Error(err))
+				} else {
+					logger.Info("Elasticsearch mappings ensured for all data models")
+				}
+			}
 		}
 	}
 
@@ -172,6 +190,10 @@ func New(ctx context.Context, cfg Config, logger *zap.Logger) (*App, error) {
 	// Create event publisher for service events
 	app.EventPublisher = kafka.NewEventPublisher(cfg.KafkaBrokers, "service-events")
 	logger.Info("Kafka event publisher initialized")
+
+	// Create derived model transformer
+	app.DerivedTransformer = transform.NewDerivedModelTransformer(logger)
+	logger.Info("Derived model transformer initialized")
 
 	// Create executor
 	app.Executor = pipeline.NewExecutor(pipeline.ExecutorConfig{

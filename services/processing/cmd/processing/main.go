@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/dnasol/dna-platform/services/processing/internal/app"
 	"github.com/dnasol/dna-platform/services/processing/internal/model"
 	mongostore "github.com/dnasol/dna-platform/services/processing/internal/mongo"
+	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -61,6 +63,9 @@ func main() {
 
 	// Dev endpoint for manual processing (bypasses Kafka)
 	router.Post("/v1/process", DevProcessHandler(application, logger))
+
+	// Reload models endpoint
+	router.Post("/reload-models", ReloadModelsHandler(application, logger))
 
 	// Start HTTP server
 	httpPort := GetEnv("HTTP_PORT", "8080")
@@ -142,7 +147,7 @@ func ConsumeLoop(ctx context.Context, app *app.App, logger *zap.Logger) {
 				app.Executor.SetESClientAndIndex(app.ESClient, targetIndex)
 			}
 
-		// Process event
+		// Process event with main pipeline
 		start := time.Now()
 		processed, err := app.Executor.Execute(ctx, event)
 		duration := time.Since(start).Milliseconds()
@@ -153,6 +158,95 @@ func ConsumeLoop(ctx context.Context, app *app.App, logger *zap.Logger) {
 				zap.String("event_id", event.EventID),
 				zap.Error(err))
 			continue
+		}
+
+		// Process derived models if any
+		logger.Info("checking for derived models - START",
+			zap.String("event_id", event.EventID),
+			zap.String("data_source_id", event.DataSourceID),
+			zap.Bool("has_registry", app.DataModelRegistry != nil))
+
+		if app.DataModelRegistry != nil && event.DataSourceID != "" {
+			sourceModel, err := app.DataModelRegistry.GetModelByDataSourceID(ctx, event.DataSourceID)
+			if err != nil {
+				logger.Info("failed to get source model by data_source_id",
+					zap.String("data_source_id", event.DataSourceID),
+					zap.Error(err))
+			} else if sourceModel != nil {
+				// Find derived models that use this source
+				derivedModels := app.DataModelRegistry.GetDerivedModels(sourceModel.DataIndex)
+
+				logger.Info("found derived models",
+					zap.String("source_data_index", sourceModel.DataIndex),
+					zap.Int("derived_count", len(derivedModels)))
+
+				for _, derivedModel := range derivedModels {
+					logger.Info("processing event with derived model",
+						zap.String("event_id", event.EventID),
+						zap.String("derived_model", derivedModel.Name),
+						zap.String("derived_model_id", derivedModel.ID.Hex()),
+						zap.Int("attribute_count", len(derivedModel.Attributes)))
+
+					// Transform event to include only selected attributes
+					if app.DerivedTransformer != nil {
+						derivedEvent, transformErr := app.DerivedTransformer.Transform(ctx, processed, derivedModel)
+						if transformErr != nil {
+							logger.Error("failed to transform event for derived model",
+								zap.String("event_id", event.EventID),
+								zap.String("derived_model", derivedModel.Name),
+								zap.Error(transformErr))
+							continue
+						}
+
+						// Log to Elasticsearch
+						if app.ESClient != nil {
+							// Convert event to document
+							doc := map[string]interface{}{
+								"@timestamp":      derivedEvent.Timestamp,
+								"event_id":        derivedEvent.EventID,
+								"organization_id": derivedEvent.OrganizationID,
+								"tenant_id":       derivedEvent.TenantID,
+								"data_source_id":  derivedEvent.DataSourceID,
+								"agent_id":        derivedEvent.AgentID,
+								"type":            derivedEvent.Kind,
+								"source":          derivedEvent.Source,
+								"ingested_at":     derivedEvent.IngestedAt,
+								"payload":         derivedEvent.Payload,
+								"attributes":      derivedEvent.Attributes,
+							}
+
+							docBytes, _ := json.Marshal(doc)
+							req := esapi.IndexRequest{
+								Index:      derivedModel.ELK.IndexName,
+								DocumentID: derivedEvent.EventID,
+								Body:       bytes.NewReader(docBytes),
+								Refresh:    "false",
+							}
+
+							res, logErr := req.Do(ctx, app.ESClient)
+							if logErr != nil {
+								logger.Error("failed to log derived event to Elasticsearch",
+									zap.String("event_id", derivedEvent.EventID),
+									zap.String("derived_model", derivedModel.Name),
+									zap.String("index", derivedModel.ELK.IndexName),
+									zap.Error(logErr))
+							} else {
+								defer res.Body.Close()
+								if res.IsError() {
+									logger.Error("elasticsearch returned error for derived event",
+										zap.String("event_id", derivedEvent.EventID),
+										zap.String("status", res.Status()))
+								} else {
+									logger.Info("derived event logged to Elasticsearch",
+										zap.String("event_id", derivedEvent.EventID),
+										zap.String("derived_model", derivedModel.Name),
+										zap.String("index", derivedModel.ELK.IndexName))
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 
 		// Store processed event in MongoDB
@@ -312,6 +406,38 @@ func DevProcessHandler(app *app.App, logger *zap.Logger) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Processing-Duration", duration.String())
 		json.NewEncoder(w).Encode(processed)
+	}
+}
+
+func ReloadModelsHandler(app *app.App, logger *zap.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Info("reloading data models")
+
+		if app.DataModelRegistry == nil {
+			http.Error(w, "data model registry not initialized", http.StatusServiceUnavailable)
+			return
+		}
+
+		// Reload models from MongoDB
+		if err := app.DataModelRegistry.Reload(r.Context()); err != nil {
+			logger.Error("failed to reload models", zap.Error(err))
+			http.Error(w, fmt.Sprintf("failed to reload models: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Ensure Elasticsearch mappings for all models
+		if app.MappingManager != nil {
+			if err := app.MappingManager.EnsureAllModelMappings(r.Context(), app.DataModelRegistry); err != nil {
+				logger.Warn("failed to ensure Elasticsearch mappings", zap.Error(err))
+			}
+		}
+
+		logger.Info("data models reloaded successfully")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "success",
+			"message": "data models reloaded",
+		})
 	}
 }
 

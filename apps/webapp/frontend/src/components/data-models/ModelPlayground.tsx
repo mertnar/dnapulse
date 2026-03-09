@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Save,
   Eye,
   GitBranch,
   Zap,
@@ -168,9 +167,29 @@ export function ModelPlayground({
 
               <Badge variant="default">v{model.version}</Badge>
 
-              <Badge variant={model.status === 'active' ? 'success' : 'warning'}>
-                {model.status}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={model.status === 'active' ? 'success' : 'warning'}>
+                  {model.status}
+                </Badge>
+                {model.status === 'draft' && (
+                  <button
+                    onClick={() => onUpdateModel({ status: 'active' })}
+                    className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                    title="Activate this model"
+                  >
+                    Activate
+                  </button>
+                )}
+                {model.status === 'active' && (
+                  <button
+                    onClick={() => onUpdateModel({ status: 'draft' })}
+                    className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                    title="Deactivate this model"
+                  >
+                    Deactivate
+                  </button>
+                )}
+              </div>
 
               {model.ml_ready && (
                 <Badge variant="info">ML Ready</Badge>
@@ -186,10 +205,6 @@ export function ModelPlayground({
             <Button variant="outline" size="sm" onClick={onViewLiveData}>
               <Eye className="h-4 w-4 mr-2" />
               Live Data
-            </Button>
-            <Button variant="outline" size="sm" onClick={onSaveVersion}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Version
             </Button>
             <div className="relative group">
               <Button variant="primary" size="sm">

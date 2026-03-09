@@ -13,7 +13,8 @@ import {
   Shield,
   FileText,
   Settings,
-  ChevronDown
+  ChevronDown,
+  Eye
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -29,6 +30,7 @@ const navigation: NavItem[] = [
   { name: 'Data Sources', path: '/data-sources', icon: Database },
   { name: 'Live Monitor', path: '/live-monitor', icon: Activity },
   { name: 'Detection & Investigation', path: '/detection', icon: Shield },
+  { name: 'Views', path: '/views', icon: Eye },
   { name: 'Agents', path: '/agents', icon: Bot },
   { name: 'Data Models', path: '/data-models', icon: Box },
   { name: 'ML Models', path: '/ml-models', icon: Brain },

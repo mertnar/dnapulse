@@ -146,8 +146,39 @@ export const dataModelsService = {
 
     if (!model) return null;
 
-    // If schema.fields is empty but ELK index exists, fetch fields from Elasticsearch
-    let attributes = model.schema?.fields || [];
+    // First, try to get attributes from data_model_attributes collection
+    let attributes: SchemaField[] = [];
+    try {
+      const attributesCollection = await getCollection(Collections.DATA_MODEL_ATTRIBUTES);
+      const dbAttributes = await attributesCollection
+        .find({ data_model_id: new ObjectId(id) })
+        .sort({ order: 1 })
+        .toArray();
+
+      if (dbAttributes.length > 0) {
+        attributes = dbAttributes.map((attr: any) => ({
+          id: attr._id.toString(),
+          name: attr.path,
+          path: attr.path,
+          type: attr.type,
+          required: attr.required || false,
+          indexed: attr.indexed || false,
+          description: attr.description || '',
+          example: attr.example,
+          status: attr.status || 'normal',
+          order: attr.order || 0,
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching attributes from data_model_attributes:', error);
+    }
+
+    // If no attributes found in data_model_attributes, try schema.fields
+    if (attributes.length === 0) {
+      attributes = model.schema?.fields || [];
+    }
+
+    // If still no attributes and ELK index exists, fetch fields from Elasticsearch
     if (attributes.length === 0 && model.elk?.index_name) {
       try {
         const { esClient } = await import('../lib/elasticsearch.js');
@@ -261,6 +292,15 @@ export const dataModelsService = {
       created_at: now,
       updated_at: now,
     };
+
+    // Create Elasticsearch index with mapping
+    try {
+      await this.updateElasticsearchMapping(createdModel);
+      console.log(`Elasticsearch index created: ${elkIndexName}`);
+    } catch (error) {
+      console.error('Failed to create Elasticsearch index:', error);
+      // Don't fail model creation if ES index creation fails
+    }
 
     // Create and deploy default pipeline for the model
     try {
@@ -410,26 +450,62 @@ export const dataModelsService = {
 
   // Legacy methods for compatibility with existing UI
   async getDataModels(): Promise<any[]> {
-    // Default to first organization for now
+    // Get all models from all organizations for now (including draft models)
     // In production, this should come from auth context
-    return this.getAll('6976ee903bd20e1f00bc5dd6');
+    const collection = await getCollection(Collections.DATA_MODELS);
+    const models = await collection.find({}).sort({ created_at: -1 }).toArray();
+
+    return models.map((m) => ({
+      id: m._id.toString(),
+      organization_id: m.organization_id.toString(),
+      name: m.name,
+      data_index: m.data_index,
+      type: m.type,
+      version: m.version,
+      status: m.status,
+      source: {
+        data_source_ids: m.source.data_source_ids.map((id: ObjectId) => id.toString()),
+        agent_type: m.source.agent_type,
+        source_type: m.source.source_type,
+      },
+      schema: m.schema,
+      attributes: m.schema?.fields || [],
+      tags: m.tags || [],
+      description: m.description || '',
+      source_count: m.source?.data_source_ids?.length || 0,
+      record_count: m.record_count || 0,
+      last_updated: m.updated_at,
+      elk: m.elk,
+      created_at: m.created_at,
+      updated_at: m.updated_at,
+      created_by: m.created_by,
+    }));
   },
 
   async getDataModelById(id: string): Promise<any> {
-    return this.getById(id, '6976ee903bd20e1f00bc5dd6');
+    // Find model and use its organization_id
+    const collection = await getCollection(Collections.DATA_MODELS);
+    const model = await collection.findOne({ _id: new ObjectId(id) });
+    if (!model) return null;
+
+    return this.getById(id, model.organization_id.toString());
   },
 
   async getModelAttributes(id: string): Promise<any[]> {
-    const model = await this.getById(id, '6976ee903bd20e1f00bc5dd6');
-    return model?.schema.fields || [];
+    const model = await this.getDataModelById(id);
+    return model?.attributes || [];
   },
 
   async getModelVersions(id: string): Promise<any[]> {
-    return this.getVersions(id, '6976ee903bd20e1f00bc5dd6');
+    const model = await this.getDataModelById(id);
+    if (!model) return [];
+    return this.getVersions(id, model.organization_id);
   },
 
   async getModelLineage(id: string): Promise<any> {
-    return this.getLineage(id, '6976ee903bd20e1f00bc5dd6');
+    const model = await this.getDataModelById(id);
+    if (!model) return { sources: [], consumers: [] };
+    return this.getLineage(id, model.organization_id);
   },
 
   async getModelNotes(id: string): Promise<any[]> {
@@ -526,6 +602,33 @@ export const dataModelsService = {
     };
 
     const result = await collection.insertOne(doc);
+
+    // Update Elasticsearch mapping to include new attribute
+    try {
+      // Reload model with new attribute
+      const updatedModel = await this.getById(modelId, organizationId);
+      if (updatedModel) {
+        await this.updateElasticsearchMapping(updatedModel);
+        console.log(`Elasticsearch mapping updated with new attribute: ${attribute.path}`);
+
+        // Trigger processing service to reload models
+        const processingServiceUrl = process.env.PROCESSING_SERVICE_URL || 'http://processing:8080';
+        try {
+          const response = await fetch(`${processingServiceUrl}/reload-models`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (response.ok) {
+            console.log('Processing service models reloaded after attribute addition');
+          }
+        } catch (reloadError) {
+          console.warn('Failed to trigger processing service reload:', reloadError);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update Elasticsearch mapping after adding attribute:', error);
+      // Don't fail attribute creation if mapping update fails
+    }
 
     return {
       id: result.insertedId.toString(),
@@ -705,8 +808,12 @@ export const dataModelsService = {
 
     if (!pipeline) throw new Error('Pipeline not found');
 
+    // Get the data model to include in config
+    const model = await this.getById(modelId, organizationId);
+    if (!model) throw new Error('Model not found');
+
     // Transform pipeline to Processing Service config format
-    const config = this.transformPipelineToProcessingConfig(pipeline);
+    const config = this.transformPipelineToProcessingConfig(pipeline, model);
 
     // Write to file system for Processing Service to pick up
     const fs = await import('fs');
@@ -732,10 +839,19 @@ export const dataModelsService = {
       }
     );
 
+    // Update Elasticsearch mapping
+    try {
+      await this.updateElasticsearchMapping(model);
+      console.log(`Elasticsearch mapping updated for index: ${model.elk.index_name}`);
+    } catch (error) {
+      console.error('Failed to update Elasticsearch mapping:', error);
+      // Don't fail the deployment if mapping update fails
+    }
+
     console.log(`Pipeline deployed: ${configPath}`);
   },
 
-  transformPipelineToProcessingConfig(pipeline: any): any {
+  transformPipelineToProcessingConfig(pipeline: any, model?: DataModel): any {
     // Transform from UI pipeline format to Processing Service format
     const rules = pipeline.pipeline.steps.map((step: any) => ({
       name: step.id,
@@ -748,7 +864,7 @@ export const dataModelsService = {
       on_error: 'skip',
     }));
 
-    return {
+    const config: any = {
       version: pipeline.version,
       rules,
       persist: {
@@ -758,6 +874,184 @@ export const dataModelsService = {
         },
       },
     };
+
+    // Include model metadata if available
+    if (model) {
+      config.model = {
+        id: model.id,
+        name: model.name,
+        data_index: model.data_index,
+        type: model.type,
+        elk_index: model.elk.index_name,
+      };
+    }
+
+    return config;
+  },
+
+  async updateElasticsearchMapping(model: DataModel): Promise<void> {
+    const { esClient } = await import('../lib/elasticsearch.js');
+
+    // Build mapping from attributes with proper nested handling
+    const properties: Record<string, any> = {};
+    const nestedFields: Record<string, any> = {};
+
+    // First pass: identify nested/array fields and their children
+    for (const attr of model.attributes || []) {
+      const path = attr.path;
+
+      // Skip array notation like "field[]"
+      if (path.includes('[]')) {
+        continue;
+      }
+
+      // Check if this is a nested field (has a parent that's an array)
+      const parts = path.split('.');
+      let isNestedChild = false;
+      let parentPath = '';
+
+      for (let i = parts.length - 1; i > 0; i--) {
+        const potentialParent = parts.slice(0, i).join('.');
+        const parentAttr = (model.attributes || []).find(
+          (a) => a.path === potentialParent && (a.type === 'array' || a.type === 'object')
+        );
+
+        if (parentAttr && parentAttr.type === 'array') {
+          isNestedChild = true;
+          parentPath = potentialParent;
+          break;
+        }
+      }
+
+      if (isNestedChild && parentPath) {
+        // This is a child of a nested field
+        if (!nestedFields[parentPath]) {
+          nestedFields[parentPath] = { properties: {} };
+        }
+        const childPath = path.substring(parentPath.length + 1);
+        const esType = this.mapTypeToElasticsearch(attr.type);
+        const fieldMapping: any = { type: esType };
+
+        if (esType === 'text') {
+          fieldMapping.fields = {
+            keyword: { type: 'keyword', ignore_above: 256 },
+          };
+        }
+
+        nestedFields[parentPath].properties[childPath] = fieldMapping;
+      } else if (attr.type === 'array') {
+        // This is the parent array field
+        properties[path] = {
+          type: 'nested',
+          properties: nestedFields[path]?.properties || {},
+        };
+      } else if (attr.type === 'object') {
+        // Regular object field
+        properties[path] = { type: 'object' };
+      } else {
+        // Regular field
+        const esType = this.mapTypeToElasticsearch(attr.type);
+        const fieldMapping: any = { type: esType };
+
+        if (esType === 'text') {
+          fieldMapping.fields = {
+            keyword: { type: 'keyword', ignore_above: 256 },
+          };
+        }
+
+        properties[path] = fieldMapping;
+      }
+    }
+
+    // Add nested fields that were collected
+    for (const [parentPath, nestedDef] of Object.entries(nestedFields)) {
+      if (!properties[parentPath]) {
+        properties[parentPath] = {
+          type: 'nested',
+          properties: nestedDef.properties,
+        };
+      } else if (properties[parentPath].type === 'nested') {
+        properties[parentPath].properties = {
+          ...properties[parentPath].properties,
+          ...nestedDef.properties,
+        };
+      }
+    }
+
+    // Add common metadata fields
+    properties['@timestamp'] = { type: 'date' };
+    properties['event_id'] = { type: 'keyword' };
+    properties['organization_id'] = { type: 'keyword' };
+    properties['data_source_id'] = { type: 'keyword' };
+    properties['agent_id'] = { type: 'keyword' };
+    properties['tenant_id'] = { type: 'keyword' };
+    properties['ingested_at'] = { type: 'date' };
+
+    const mapping = {
+      properties,
+    };
+
+    // Check if index exists
+    const indexExists = await esClient.indices.exists({ index: model.elk.index_name } as any);
+
+    if (!indexExists) {
+      // Create index with mapping
+      await esClient.indices.create({
+        index: model.elk.index_name,
+        body: {
+          settings: {
+            number_of_shards: 1,
+            number_of_replicas: 1,
+            'index.max_result_window': 10000,
+          },
+          mappings: mapping,
+        },
+      } as any);
+      console.log(`Created Elasticsearch index: ${model.elk.index_name}`);
+    } else {
+      // Update mapping
+      await esClient.indices.putMapping({
+        index: model.elk.index_name,
+        body: mapping,
+      } as any);
+      console.log(`Updated Elasticsearch mapping: ${model.elk.index_name}`);
+    }
+  },
+
+  mapTypeToElasticsearch(
+    type: string
+  ):
+    | 'text'
+    | 'keyword'
+    | 'long'
+    | 'double'
+    | 'date'
+    | 'boolean'
+    | 'ip'
+    | 'object'
+    | 'nested'
+    | 'dense_vector' {
+    switch (type) {
+      case 'string':
+        return 'text';
+      case 'number':
+        return 'long';
+      case 'date':
+        return 'date';
+      case 'ip':
+        return 'ip';
+      case 'bool':
+      case 'boolean':
+        return 'boolean';
+      case 'vector':
+        return 'dense_vector';
+      case 'object':
+        return 'object';
+      case 'array':
+        return 'nested';
+      default:
+        return 'text';
+    }
   },
 
   mapOperationToRuleType(operationType: string): string {
@@ -781,48 +1075,82 @@ export const dataModelsService = {
     pipeline: any;
     created_by: string;
   }): Promise<any> {
-    // Create data model
+    // Create data model (without creating ELK index yet)
     const slugify = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, '_');
     const dataIndex = `${slugify(data.name)}_derived`;
+    const elkIndexName = `org_${data.organization_id}__${dataIndex}__v1`;
 
-    const model = await this.create({
-      organization_id: data.organization_id,
+    const collection = await getCollection(Collections.DATA_MODELS);
+    const now = new Date();
+
+    const doc = {
+      organization_id: new ObjectId(data.organization_id),
       name: data.name,
       data_index: dataIndex,
-      type: 'derived',
+      type: 'derived' as const,
       version: 1,
-      status: 'draft',
+      status: 'draft' as const,
       source: {
-        data_source_ids: data.source_model_ids,
+        data_source_ids: data.source_model_ids.map((id) => new ObjectId(id)),
         source_type: 'derived',
       },
       schema: { fields: [] },
       elk: {
-        index_name: `org_${data.organization_id}__${dataIndex}__v1`,
+        index_name: elkIndexName,
       },
+      created_at: now,
+      updated_at: now,
       created_by: data.created_by,
-    });
+    };
 
-    // Create attributes
+    const result = await collection.insertOne(doc);
+    const modelId = result.insertedId.toString();
+
+    // Create attributes BEFORE creating ELK index
     for (let i = 0; i < data.attributes.length; i++) {
       const attr = data.attributes[i];
-      await this.createAttribute(model.id!, data.organization_id, {
-        ...attr,
+      const attrCollection = await getCollection(Collections.DATA_MODEL_ATTRIBUTES);
+      await attrCollection.insertOne({
+        data_model_id: new ObjectId(modelId),
+        path: attr.path,
+        type: attr.type,
+        source: attr.source || 'user-selected',
+        required: attr.required || false,
+        indexed: attr.indexed || false,
+        description: attr.description || '',
+        example: attr.example,
+        status: attr.status || 'normal',
         order: i + 1,
+        derivation: attr.derivation,
+        created_at: now,
+        updated_at: now,
         created_by: data.created_by,
       });
     }
 
+    // Now get the full model with attributes and create ELK index
+    const fullModel = await this.getById(modelId, data.organization_id);
+    if (fullModel) {
+      try {
+        await this.updateElasticsearchMapping(fullModel);
+        console.log(
+          `Elasticsearch index created for derived model: ${elkIndexName} with ${data.attributes.length} attributes`
+        );
+      } catch (error) {
+        console.error('Failed to create Elasticsearch index for derived model:', error);
+      }
+    }
+
     // Create pipeline
     if (data.pipeline && data.pipeline.steps && data.pipeline.steps.length > 0) {
-      await this.createPipeline(model.id!, data.organization_id, {
+      await this.createPipeline(modelId, data.organization_id, {
         pipeline: data.pipeline,
         status: 'draft',
         created_by: data.created_by,
       });
     }
 
-    return model;
+    return fullModel;
   },
 
   // Vector Model Creation
