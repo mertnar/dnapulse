@@ -301,4 +301,24 @@ export const detectionService = {
       createdAt: created.created_at || new Date().toISOString(),
     };
   },
+
+  async deleteSavedView(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/live-monitor/views/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      await handleApiError(res, 'Failed to delete view');
+    }
+  },
+
+  async deleteInvestigation(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/investigations/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok && res.status !== 204) {
+      await handleApiError(res, 'Failed to delete investigation');
+    }
+  },
 };

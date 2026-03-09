@@ -14,6 +14,8 @@ import { RulesPanel } from '../components/detection/RulesPanel';
 import { RuleBuilderDrawer } from '../components/detection/RuleBuilderDrawer';
 import { AlertsView } from '../components/detection/AlertsView';
 import { InvestigationCanvas } from '../components/detection/InvestigationCanvas';
+import { InvestigationsPanel } from '../components/detection/InvestigationsPanel';
+import { CreateInvestigationModal } from '../components/detection/CreateInvestigationModal';
 import {
   Search,
   Save,
@@ -22,7 +24,7 @@ import {
   Activity,
   Shield,
   BookMarked,
-  Filter
+  Filter,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { liveMonitorService, type LiveEvent, type HistogramBucket } from '../services/liveMonitorService';
@@ -33,8 +35,7 @@ import {
   type DetectionRule,
   type Alert,
   type Investigation,
-  type AlertStatus,
-  type InvestigationStatus
+  type InvestigationStatus,
 } from '../services/detectionService';
 import type { EventSeverity } from '../types';
 
@@ -67,6 +68,7 @@ export function DetectionInvestigation() {
   const [isEventDrawerOpen, setIsEventDrawerOpen] = useState(false);
   const [isRuleBuilderOpen, setIsRuleBuilderOpen] = useState(false);
   const [isSaveViewModalOpen, setIsSaveViewModalOpen] = useState(false);
+  const [isCreateInvestigationOpen, setIsCreateInvestigationOpen] = useState(false);
   const [ruleBuilderData, setRuleBuilderData] = useState<any>(null);
 
   const [selectedSeverities, setSelectedSeverities] = useState<Set<EventSeverity>>(new Set());
@@ -339,44 +341,174 @@ export function DetectionInvestigation() {
     await loadData();
   };
 
+  // Load a single investigation by ID (includes notes)
+  const loadInvestigationDetail = async (invId: string): Promise<Investigation | null> => {
+    try {
+      return await detectionService.getInvestigationById(invId);
+    } catch {
+      return null;
+    }
+  };
+
+  const openInvestigation = async (inv: Investigation) => {
+    const detailed = await loadInvestigationDetail(inv.id!);
+    setActiveInvestigation(detailed || inv);
+    setWorkspaceView('investigation');
+  };
+
   const handleStartInvestigation = async (alertId: string) => {
-    const alert = alerts.find(a => a.id === alertId);
+    const alert = alerts.find((a) => a.id === alertId);
     if (!alert) return;
 
     const investigation = await detectionService.createInvestigation({
-      name: `Investigation: ${alert.ruleName}`,
-      status: 'in_progress',
+      title: `Investigation: ${alert.title}`,
+      status: 'open',
       severity: alert.severity,
-      alertIds: [alertId],
-      eventIds: alert.eventIds,
-      notes: [],
-      relatedHosts: [],
-      relatedUsers: [],
-      relatedIPs: [],
-      assignedTo: 'current-user'
+      alert_ids: [alertId],
+      event_refs: (alert.sample_event_ids || []).map((id) => ({ event_id: id })),
+      entities: alert.entities || { hosts: [], users: [], ips: [] },
+      organization_id: user?.organization_id || '',
+      created_by: user?.user_id || '',
     });
 
-    setActiveInvestigation(investigation);
-    setWorkspaceView('investigation');
     await loadData();
+    await openInvestigation(investigation);
   };
 
-  const handleAddInvestigationNote = async (content: string) => {
-    if (activeInvestigation) {
-      await detectionService.addNoteToInvestigation(activeInvestigation.id, content, 'current-user');
-      await loadData();
-      const updated = investigations.find(i => i.id === activeInvestigation.id);
-      if (updated) setActiveInvestigation(updated);
+  const handleCreateInvestigation = async (data: {
+    title: string;
+    severity: EventSeverity;
+    description: string;
+    alert_ids: string[];
+  }) => {
+    const inv = await detectionService.createInvestigation({
+      title: data.title,
+      status: 'open',
+      severity: data.severity,
+      alert_ids: data.alert_ids,
+      event_refs: [],
+      entities: { hosts: [], users: [], ips: [] },
+      organization_id: user?.organization_id || '',
+      created_by: user?.user_id || '',
+    });
+
+    // Add description as initial note if provided
+    if (data.description.trim()) {
+      await detectionService.addNoteToInvestigation(inv.id!, data.description.trim());
     }
+
+    await loadData();
+    await openInvestigation(inv);
+  };
+
+  const handleAddInvestigationNote = async (text: string) => {
+    if (!activeInvestigation?.id) return;
+    await detectionService.addNoteToInvestigation(activeInvestigation.id, text);
+    const updated = await loadInvestigationDetail(activeInvestigation.id);
+    if (updated) setActiveInvestigation(updated);
   };
 
   const handleUpdateInvestigationStatus = async (status: InvestigationStatus) => {
-    if (activeInvestigation) {
-      await detectionService.updateInvestigation(activeInvestigation.id, { status });
-      await loadData();
-      const updated = investigations.find(i => i.id === activeInvestigation.id);
+    if (!activeInvestigation?.id) return;
+    await detectionService.updateInvestigation(activeInvestigation.id, { status });
+    const updated = await loadInvestigationDetail(activeInvestigation.id);
+    if (updated) {
+      setActiveInvestigation(updated);
+      setInvestigations((prev) =>
+        prev.map((i) => (i.id === updated.id ? updated : i))
+      );
+    }
+  };
+
+  const handleUpdateInvestigationTitle = async (title: string) => {
+    if (!activeInvestigation?.id) return;
+    await detectionService.updateInvestigation(activeInvestigation.id, { title });
+    const updated = await loadInvestigationDetail(activeInvestigation.id);
+    if (updated) {
+      setActiveInvestigation(updated);
+      setInvestigations((prev) =>
+        prev.map((i) => (i.id === updated.id ? updated : i))
+      );
+    }
+  };
+
+  const handleUpdateInvestigationSeverity = async (severity: EventSeverity) => {
+    if (!activeInvestigation?.id) return;
+    await detectionService.updateInvestigation(activeInvestigation.id, { severity });
+    const updated = await loadInvestigationDetail(activeInvestigation.id);
+    if (updated) {
+      setActiveInvestigation(updated);
+      setInvestigations((prev) =>
+        prev.map((i) => (i.id === updated.id ? updated : i))
+      );
+    }
+  };
+
+  const handleAddEntity = async (
+    type: 'hosts' | 'users' | 'ips',
+    value: string
+  ) => {
+    if (!activeInvestigation?.id) return;
+    const entities = activeInvestigation.entities || { hosts: [], users: [], ips: [] };
+    const updated = {
+      ...entities,
+      [type]: [...(entities[type] || []), value],
+    };
+    await detectionService.updateInvestigation(activeInvestigation.id, { entities: updated });
+    const refreshed = await loadInvestigationDetail(activeInvestigation.id);
+    if (refreshed) setActiveInvestigation(refreshed);
+  };
+
+  const handleRemoveEntity = async (
+    type: 'hosts' | 'users' | 'ips',
+    value: string
+  ) => {
+    if (!activeInvestigation?.id) return;
+    const entities = activeInvestigation.entities || { hosts: [], users: [], ips: [] };
+    const updated = {
+      ...entities,
+      [type]: (entities[type] || []).filter((v) => v !== value),
+    };
+    await detectionService.updateInvestigation(activeInvestigation.id, { entities: updated });
+    const refreshed = await loadInvestigationDetail(activeInvestigation.id);
+    if (refreshed) setActiveInvestigation(refreshed);
+  };
+
+  const handleDeleteInvestigation = async () => {
+    if (!activeInvestigation?.id) return;
+    await detectionService.deleteInvestigation(activeInvestigation.id);
+    setActiveInvestigation(null);
+    setWorkspaceView('events');
+    await loadData();
+  };
+
+  const handleInvestigationPanelStatusUpdate = async (
+    invId: string,
+    status: InvestigationStatus
+  ) => {
+    await detectionService.updateInvestigation(invId, { status });
+    await loadData();
+    // If current investigation is open, refresh it too
+    if (activeInvestigation?.id === invId) {
+      const updated = await loadInvestigationDetail(invId);
       if (updated) setActiveInvestigation(updated);
     }
+  };
+
+  const handleInvestigationPanelDelete = async (invId: string) => {
+    await detectionService.deleteInvestigation(invId);
+    if (activeInvestigation?.id === invId) {
+      setActiveInvestigation(null);
+      setWorkspaceView('events');
+    }
+    await loadData();
+  };
+
+  const handleAddEventToInvestigation = async (event: LiveEvent) => {
+    if (!activeInvestigation?.id) return;
+    await detectionService.addEventsToInvestigation(activeInvestigation.id, [event.id]);
+    const updated = await loadInvestigationDetail(activeInvestigation.id);
+    if (updated) setActiveInvestigation(updated);
   };
 
   const handleEventClick = (event: LiveEvent) => {
@@ -457,15 +589,15 @@ export function DetectionInvestigation() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => {
-                if (investigations.length > 0) {
-                  setActiveInvestigation(investigations[0]);
-                  setWorkspaceView('investigation');
-                }
-              }}
+              onClick={() => setIsCreateInvestigationOpen(true)}
             >
               <FileSearch className="h-4 w-4 mr-2" />
-              Investigations
+              New Investigation
+              {investigations.filter((i) => i.status === 'open' || i.status === 'in_progress').length > 0 && (
+                <Badge variant="warning" size="sm" className="ml-2">
+                  {investigations.filter((i) => i.status === 'open' || i.status === 'in_progress').length}
+                </Badge>
+              )}
             </Button>
           </div>
         </div>
@@ -583,6 +715,15 @@ export function DetectionInvestigation() {
                 onDeleteRule={handleDeleteRule}
               />
             </div>
+
+            <InvestigationsPanel
+              investigations={investigations}
+              selectedInvestigationId={activeInvestigation?.id}
+              onSelectInvestigation={openInvestigation}
+              onDeleteInvestigation={handleInvestigationPanelDelete}
+              onUpdateStatus={handleInvestigationPanelStatusUpdate}
+              onCreateNew={() => setIsCreateInvestigationOpen(true)}
+            />
           </div>
         </div>
 
@@ -698,9 +839,15 @@ export function DetectionInvestigation() {
           {workspaceView === 'investigation' && activeInvestigation && (
             <InvestigationCanvas
               investigation={activeInvestigation}
+              alerts={alerts}
               onAddNote={handleAddInvestigationNote}
               onUpdateStatus={handleUpdateInvestigationStatus}
+              onUpdateTitle={handleUpdateInvestigationTitle}
+              onUpdateSeverity={handleUpdateInvestigationSeverity}
+              onAddEntity={handleAddEntity}
+              onRemoveEntity={handleRemoveEntity}
               onClose={() => setWorkspaceView('events')}
+              onDelete={handleDeleteInvestigation}
             />
           )}
         </div>
@@ -711,7 +858,7 @@ export function DetectionInvestigation() {
         onClose={() => setIsEventDrawerOpen(false)}
         event={selectedEvent}
         onCreateRule={handleCreateRuleFromEvent}
-        onAddToInvestigation={(event) => {}}
+        onAddToInvestigation={activeInvestigation ? handleAddEventToInvestigation : undefined}
       />
 
       <RuleBuilderDrawer
@@ -730,6 +877,13 @@ export function DetectionInvestigation() {
           onSave={handleSaveViewSubmit}
         />
       )}
+
+      <CreateInvestigationModal
+        isOpen={isCreateInvestigationOpen}
+        onClose={() => setIsCreateInvestigationOpen(false)}
+        onSubmit={handleCreateInvestigation}
+        availableAlerts={alerts}
+      />
     </div>
   );
 }
