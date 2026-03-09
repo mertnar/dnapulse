@@ -171,8 +171,6 @@ Thumbs.db
 *.rar
 
 # Generated protobuf files
-**/gen/
-**/*.pb.go
 **/*_pb.ts
 **/*_pb2.py
 
