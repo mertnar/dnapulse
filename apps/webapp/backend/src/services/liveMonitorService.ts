@@ -236,8 +236,10 @@ export const liveMonitorService = {
    * Search events with pagination using Elasticsearch
    */
   async searchEvents(params: SearchParams): Promise<SearchResult> {
-    // If no index specified, search across all dnapulse indices
-    const searchIndex = params.index || 'dnapulse-*';
+    // If no index specified, search all indices for this organization
+    const orgId = params.organization_id?.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const fallbackIndex = orgId ? `org_${orgId}__*` : 'org_*';
+    const searchIndex = params.index || fallbackIndex;
 
     const limit = params.limit || 100;
     const from = params.cursor ? parseInt(params.cursor, 10) : 0;
@@ -303,8 +305,12 @@ export const liveMonitorService = {
   /**
    * Get histogram aggregation grouped by severity using Elasticsearch
    */
-  async getAggregation(params: AggParams & { index?: string }): Promise<HistogramBucket[]> {
-    const searchIndex = params.index || 'dnapulse-*';
+  async getAggregation(
+    params: AggParams & { index?: string; organization_id?: string }
+  ): Promise<HistogramBucket[]> {
+    const orgId = params.organization_id?.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const fallbackIndex = orgId ? `org_${orgId}__*` : 'org_*';
+    const searchIndex = params.index || fallbackIndex;
 
     // Determine time range
     let from: Date;

@@ -10,6 +10,7 @@ import {
   PieChart,
   ScatterChart,
   Check,
+  Database,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -20,6 +21,7 @@ import {
   type ChartConfig,
 } from '../services/detectionService';
 import { liveMonitorService } from '../services/liveMonitorService';
+import { dataModelsService, type DataModelIndex } from '../services/dataModelsService';
 
 const VIZ_TYPES: { value: VisualizationType; label: string; desc: string; icon: typeof TableIcon }[] = [
   { value: 'table',   label: 'Table',        desc: 'Rows & columns',      icon: TableIcon },
@@ -43,6 +45,7 @@ export function ViewEdit() {
   const navigate = useNavigate();
 
   const [view, setView] = useState<SavedView | null>(null);
+  const [dataModels, setDataModels] = useState<DataModelIndex[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +53,7 @@ export function ViewEdit() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState('');
   const [vizType, setVizType] = useState<VisualizationType>('table');
   const [xAxis, setXAxis] = useState('');
   const [yAxis, setYAxis] = useState('');
@@ -59,7 +63,12 @@ export function ViewEdit() {
   const [stacked, setStacked] = useState(false);
 
   useEffect(() => {
-    if (id) loadView();
+    if (id) {
+      loadView();
+      dataModelsService.getDataModels().then(models =>
+        setDataModels(models.filter(m => m.index_name && m.status === 'active'))
+      );
+    }
   }, [id]);
 
   const loadView = async () => {
@@ -72,6 +81,10 @@ export function ViewEdit() {
       setView(found);
       setName(found.name);
       setDescription(found.description || '');
+      // Restore saved index
+      const savedIndex = found.filters?.index
+        || (found.datasourceScope && found.datasourceScope.length > 0 ? found.datasourceScope[0] : '');
+      setSelectedIndex(savedIndex);
 
       if (found.visualization) {
         setVizType(found.visualization.type);
@@ -113,7 +126,18 @@ export function ViewEdit() {
               stacked: vizType === 'bar' || vizType === 'area' ? stacked : undefined,
             };
 
-      await liveMonitorService.updateSavedView(view.id, { name, description, visualization });
+      // Merge selectedIndex back into pinned_filters so ViewDetail can pick it up
+      const pinned_filters = {
+        ...(view.filters || {}),
+        index: selectedIndex || undefined,
+      };
+
+      await liveMonitorService.updateSavedView(view.id, {
+        name,
+        description,
+        visualization,
+        pinned_filters,
+      });
       setSuccess(true);
       setTimeout(() => navigate(`/views/${view.id}`), 600);
     } catch (err: any) {
@@ -202,6 +226,30 @@ export function ViewEdit() {
               placeholder="Optional short description"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            <span className="flex items-center gap-1.5">
+              <Database className="h-4 w-4" />
+              Index
+            </span>
+          </label>
+          <select
+            value={selectedIndex}
+            onChange={e => setSelectedIndex(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none"
+          >
+            <option value="">All indices (auto)</option>
+            {dataModels.map(m => (
+              <option key={m.id} value={m.index_name}>
+                {m.name} ({m.index_name})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-1.5">
+            Select the Elasticsearch index to query. Leave empty to search all org indices.
+          </p>
         </div>
 
         <div>

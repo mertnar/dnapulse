@@ -9,10 +9,12 @@ interface TimeRangeSelectorProps {
 }
 
 const PRESET_RANGES = [
-  { value: '15m', label: 'Last 15 min' },
-  { value: '1h',  label: 'Last 1 hour' },
-  { value: '24h', label: 'Last 24 hours' },
-  { value: '7d',  label: 'Last 7 days' },
+  { value: '15m', label: '15 min' },
+  { value: '1h',  label: '1 hour' },
+  { value: '6h',  label: '6 hours' },
+  { value: '24h', label: '24 hours' },
+  { value: '7d',  label: '7 days' },
+  { value: '30d', label: '30 days' },
 ];
 
 export function TimeRangeSelector({ value, customRange, onChange }: TimeRangeSelectorProps) {

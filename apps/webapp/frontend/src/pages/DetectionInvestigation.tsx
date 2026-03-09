@@ -319,7 +319,7 @@ export function DetectionInvestigation() {
         query,
         timeRange,
         columns: ['severity', 'event_type', 'host', 'user', 'timestamp'],
-        filters: {}
+        filters: { index: selectedIndex || undefined }
       });
       await loadData();
       setIsSaveViewModalOpen(false);

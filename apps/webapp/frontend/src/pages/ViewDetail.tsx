@@ -14,10 +14,13 @@ import {
   Activity,
   ScatterChart,
   Clock,
+  Database,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { detectionService, type SavedView, type VisualizationType } from '../services/detectionService';
 import { liveMonitorService } from '../services/liveMonitorService';
+import { dataModelsService, type DataModelIndex } from '../services/dataModelsService';
 import { ViewTable } from '../components/views/ViewTable';
 import { ViewChart } from '../components/views/ViewChart';
 import { TimeRangeSelector } from '../components/views/TimeRangeSelector';
@@ -43,25 +46,47 @@ export function ViewDetail() {
   const navigate = useNavigate();
 
   const [view, setView] = useState<SavedView | null>(null);
+  const [dataModels, setDataModels] = useState<DataModelIndex[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<string>('');
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<string>('15m');
+  const [timeRange, setTimeRange] = useState<string>('30d');
   const [customTimeRange, setCustomTimeRange] = useState<{ from: Date; to: Date } | null>(null);
   const [activeViz, setActiveViz] = useState<VisualizationType>('table');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [autoRefreshSec, setAutoRefreshSec] = useState(0);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [showIndexPicker, setShowIndexPicker] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (id) loadView();
+    if (id) {
+      loadView();
+      dataModelsService.getDataModels().then(models => {
+        const active = models.filter(m => m.index_name && m.status === 'active');
+        setDataModels(active);
+      });
+    }
   }, [id]);
+
+  // Auto-select first available index when view has no index and data models are loaded
+  useEffect(() => {
+    if (view && !selectedIndex && dataModels.length > 0) {
+      // Check again: view might have a saved index we haven't set yet
+      const savedIndex = view.filters?.index
+        || (view.datasourceScope && view.datasourceScope.length > 0 ? view.datasourceScope[0] : '');
+      if (!savedIndex) {
+        // Auto-select the first active data model's index
+        setSelectedIndex(dataModels[0].index_name);
+      }
+    }
+  }, [dataModels, view]);
 
   useEffect(() => {
     if (view) loadData();
-  }, [view, timeRange, customTimeRange]);
+  }, [view, timeRange, customTimeRange, selectedIndex]);
 
   // Auto-refresh
   useEffect(() => {
@@ -79,8 +104,13 @@ export function ViewDetail() {
       const found = views.find(v => v.id === id);
       if (!found) { setError('View not found'); return; }
       setView(found);
-      setTimeRange(found.timeRange);
+      // Always use at least 30d on open so older data is visible; user can narrow it
+      setTimeRange('30d');
       setActiveViz(found.visualization?.type || 'table');
+      // Resolve index from saved view
+      const savedIndex = found.filters?.index
+        || (found.datasourceScope && found.datasourceScope.length > 0 ? found.datasourceScope[0] : '');
+      setSelectedIndex(savedIndex);
     } catch (err: any) {
       setError(err.message || 'Failed to load view');
     } finally {
@@ -100,19 +130,16 @@ export function ViewDetail() {
         from = customTimeRange.from;
         to = customTimeRange.to;
       } else {
-        const minutes: Record<string, number> = { '15m': 15, '1h': 60, '24h': 1440, '7d': 10080 };
-        from = new Date(Date.now() - (minutes[timeRange] || 15) * 60 * 1000);
+        const minutes: Record<string, number> = { '15m': 15, '1h': 60, '6h': 360, '24h': 1440, '7d': 10080, '30d': 43200 };
+        from = new Date(Date.now() - (minutes[timeRange] || 10080) * 60 * 1000);
       }
 
-      // Resolve index: try pinned_filters.index first, then datasourceScope
-      const index = view.filters?.index
-        || (view.datasourceScope && view.datasourceScope.length > 0 ? view.datasourceScope[0] : undefined);
-
       const result = await liveMonitorService.searchEvents({
-        query: view.query,
+        query: view.query || '',
         time_range: { from: from.toISOString(), to: to.toISOString() },
         limit: 1000,
-        index,
+        // pass undefined when empty so backend uses org-scoped wildcard
+        index: selectedIndex || undefined,
       });
 
       setData(result.events || []);
@@ -122,7 +149,7 @@ export function ViewDetail() {
     } finally {
       setRefreshing(false);
     }
-  }, [view, timeRange, customTimeRange]);
+  }, [view, timeRange, customTimeRange, selectedIndex]);
 
   const handleExportCSV = () => {
     if (data.length === 0) return;
@@ -244,66 +271,118 @@ export function ViewDetail() {
         </div>
       </div>
 
-      {/* Time Range + Viz Switcher */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex-1">
-          <TimeRangeSelector
-            value={timeRange}
-            customRange={customTimeRange}
-            onChange={(r, c) => { setTimeRange(r); setCustomTimeRange(c || null); }}
-          />
+      {/* Index + Time Range + Viz Switcher toolbar */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+        {/* Index Picker */}
+        <div className="flex items-center gap-3">
+          <Database className="h-4 w-4 text-gray-400 flex-shrink-0" />
+          <div className="relative flex-1">
+            <button
+              onClick={() => setShowIndexPicker(!showIndexPicker)}
+              className="w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+            >
+              <span className={`font-mono truncate ${!selectedIndex ? 'text-gray-400' : ''}`}>
+                {selectedIndex || 'All indices (auto)'}
+              </span>
+              <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0 ml-2" />
+            </button>
+            {showIndexPicker && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowIndexPicker(false)} />
+                <div className="absolute left-0 top-full mt-1 z-20 w-full min-w-[320px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 max-h-64 overflow-auto">
+                  <button
+                    onClick={() => { setSelectedIndex(''); setShowIndexPicker(false); }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 ${!selectedIndex ? 'text-primary-600 dark:text-primary-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}
+                  >
+                    <Database className="h-3.5 w-3.5 text-gray-400" />
+                    All indices (auto)
+                  </button>
+                  {dataModels.length > 0 && (
+                    <hr className="my-1 border-gray-100 dark:border-gray-700" />
+                  )}
+                  {dataModels.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => { setSelectedIndex(m.index_name); setShowIndexPicker(false); }}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${selectedIndex === m.index_name ? 'text-primary-600 dark:text-primary-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}
+                    >
+                      <p className="font-medium">{m.name}</p>
+                      <p className="text-xs font-mono text-gray-400 truncate">{m.index_name}</p>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Visualization type switcher */}
-        <div className="flex items-center bg-gray-100 dark:bg-gray-700/60 rounded-lg p-0.5">
-          {VIZ_OPTIONS.map(opt => {
-            const Icon = opt.icon;
-            const isActive = activeViz === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setActiveViz(opt.value)}
-                title={opt.label}
-                className={`p-2 rounded-md transition-all ${
-                  isActive
-                    ? 'bg-white dark:bg-gray-600 shadow-sm text-primary-600 dark:text-primary-400'
-                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            );
-          })}
+        {/* Time Range */}
+        <TimeRangeSelector
+          value={timeRange}
+          customRange={customTimeRange}
+          onChange={(r, c) => { setTimeRange(r); setCustomTimeRange(c || null); }}
+        />
+
+        {/* Viz switcher */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <span className="font-mono bg-gray-100 dark:bg-gray-900/40 px-2 py-1 rounded">
+              {view.query || '*'}
+            </span>
+            {!refreshing && (
+              <span className="font-medium text-gray-700 dark:text-gray-300">
+                {data.length.toLocaleString()} result{data.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center bg-gray-100 dark:bg-gray-700/60 rounded-lg p-0.5">
+            {VIZ_OPTIONS.map(opt => {
+              const Icon = opt.icon;
+              const isActive = activeViz === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setActiveViz(opt.value)}
+                  title={opt.label}
+                  className={`p-2 rounded-md transition-all ${
+                    isActive
+                      ? 'bg-white dark:bg-gray-600 shadow-sm text-primary-600 dark:text-primary-400'
+                      : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-700 dark:text-red-400">Error loading data</p>
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">{error}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => loadData()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       )}
 
-      {/* Stats bar */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-          <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded">
-            {view.query || '*'}
-          </span>
-          <span className="font-medium">
-            {data.length.toLocaleString()} result{data.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        {lastRefresh && (
-          <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+      {/* Last refresh */}
+      {lastRefresh && (
+        <div className="text-right">
+          <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center justify-end gap-1">
             <Clock className="h-3 w-3" />
             Last refreshed: {lastRefresh.toLocaleTimeString()}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Visualization Area */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         {refreshing && data.length === 0 ? (
           <div className="flex items-center justify-center h-72">
             <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
@@ -311,11 +390,18 @@ export function ViewDetail() {
               Loading data...
             </div>
           </div>
-        ) : data.length === 0 ? (
+        ) : !refreshing && data.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-72 text-gray-400 dark:text-gray-500">
             <BarChart3 className="h-10 w-10 mb-3 opacity-40" />
             <p className="font-medium">No data found</p>
-            <p className="text-sm mt-1">Try adjusting your time range or query</p>
+            <p className="text-sm mt-1 text-center max-w-xs">
+              Try selecting a different index or adjusting your time range.
+              {!selectedIndex && ' No index selected — searching all indices.'}
+            </p>
+            <Button variant="secondary" size="sm" className="mt-4" onClick={() => setShowIndexPicker(true)}>
+              <Database className="h-4 w-4 mr-1" />
+              Select Index
+            </Button>
           </div>
         ) : activeViz === 'table' ? (
           <ViewTable data={data} columns={view.columns} />
@@ -325,9 +411,9 @@ export function ViewDetail() {
           </div>
         )}
 
-        {/* Loading overlay when refreshing with existing data */}
+        {/* Subtle loading overlay when refreshing with existing data */}
         {refreshing && data.length > 0 && (
-          <div className="absolute inset-0 bg-white/60 dark:bg-gray-800/60 flex items-center justify-center">
+          <div className="absolute inset-0 bg-white/60 dark:bg-gray-800/60 flex items-center justify-center rounded-xl">
             <div className="h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
           </div>
         )}

@@ -92,7 +92,8 @@ export const liveMonitorService = {
       });
 
       if (!res.ok) {
-        throw new Error(`Search failed: ${res.statusText}`);
+        const errBody = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(errBody.error || `Search failed: ${res.statusText}`);
       }
 
       const data = await res.json();
@@ -103,7 +104,7 @@ export const liveMonitorService = {
       };
     } catch (error) {
       console.error('Error searching events:', error);
-      return { events: [] };
+      throw error; // propagate so callers can show the real error
     }
   },
 

@@ -1,7 +1,8 @@
-import { Clock, Link, MoreVertical, Play, Copy, Trash2 } from 'lucide-react';
+import { Clock, Link, MoreVertical, Play, Copy, Trash2, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { SavedView } from '../../services/detectionService';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface SavedViewsPanelProps {
   views: SavedView[];
@@ -13,6 +14,7 @@ interface SavedViewsPanelProps {
 
 export function SavedViewsPanel({ views, onSelectView, onCreateRule, onDelete, selectedViewId }: SavedViewsPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   return (
     <div className="space-y-2">
@@ -77,6 +79,16 @@ export function SavedViewsPanel({ views, onSelectView, onCreateRule, onDelete, s
                     >
                       <Play className="h-3 w-3" />
                       Open View
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate(`/views/${view.id}`);
+                        setExpandedId(null);
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Open in Views Page
                     </button>
                     <button
                       onClick={() => {
