@@ -1,0 +1,37 @@
+export declare enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0,
+  METRIC = 1,
+  LOG = 2,
+  TEXT = 3,
+  IMAGE_REF = 4,
+  CUSTOM = 5,
+}
+export interface Trace {
+  traceId: string;
+  spanId: string;
+}
+export interface MetricBody {
+  name: string;
+  value: number;
+  unit: string;
+}
+export interface LogBody {
+  level: string;
+  message: string;
+}
+export interface Event {
+  eventId: string;
+  source: string;
+  type: EventType;
+  ts?: {
+    seconds: number;
+    nanos: number;
+  };
+  attributes: Record<string, string>;
+  trace?: Trace;
+  body?: {
+    metric?: MetricBody;
+    log?: LogBody;
+  };
+}
+//# sourceMappingURL=event_pb.d.ts.map

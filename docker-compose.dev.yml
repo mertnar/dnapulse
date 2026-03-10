@@ -242,7 +242,7 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_API_URL=/api
-        - VITE_INGESTION_URL=http://localhost:19071
+        - VITE_INGESTION_URL=/ingestion
     container_name: dnapulse-frontend
     ports:
       - '5173:80'

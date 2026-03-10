@@ -12,7 +12,7 @@ COPY . .
 
 # Set build-time environment variables for API URLs
 ARG VITE_API_URL=/api
-ARG VITE_INGESTION_URL=http://localhost:19071
+ARG VITE_INGESTION_URL=/ingestion
 ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_INGESTION_URL=${VITE_INGESTION_URL}
 
