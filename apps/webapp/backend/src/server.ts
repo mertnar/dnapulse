@@ -61,8 +61,9 @@ const allowedOrigins = [...defaultOrigins, ...extraOrigins];
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
+      // Allow requests with no origin (mobile apps, curl, same-origin proxy requests)
+      // Also handle "null" string origin sent by some proxies (e.g. Cloudflare)
+      if (!origin || origin === 'null') return callback(null, true);
 
       // In development mode allow everything
       if (process.env.NODE_ENV === 'development') return callback(null, true);
