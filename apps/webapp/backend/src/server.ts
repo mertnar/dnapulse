@@ -41,14 +41,22 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-const allowedOrigins = [
+const defaultOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:5174',
   'http://frontend:80',
   'http://localhost:80',
-  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 ];
+
+// ALLOWED_ORIGINS supports comma-separated list, e.g.:
+//   ALLOWED_ORIGINS=https://app.example.com,https://www.example.com
+const extraOrigins = (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+const allowedOrigins = [...defaultOrigins, ...extraOrigins];
 
 app.use(
   cors({
@@ -56,9 +64,13 @@ app.use(
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      // In development mode allow everything
+      if (process.env.NODE_ENV === 'development') return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.warn(`CORS blocked origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },

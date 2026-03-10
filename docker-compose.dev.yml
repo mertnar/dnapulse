@@ -197,6 +197,7 @@ services:
       - DEFAULT_ORG_ID=69a2d95573bdb20e4ef787de
       - PORT=3001
       - MONGO_URL=${MONGO_URL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
       - MONGO_DB_NAME=dna-pulse
       - ELASTICSEARCH_URL=http://elasticsearch:9200
     dns:
