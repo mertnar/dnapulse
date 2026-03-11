@@ -261,6 +261,8 @@ services:
 networks:
   dnapulse-dev:
     driver: bridge
+  web:
+    external: true
 
 volumes:
   es-dev-data:
