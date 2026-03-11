@@ -238,31 +238,24 @@ services:
 
   # Frontend
   frontend:
-    build:
-      context: apps/webapp/frontend
-      dockerfile: Dockerfile
-      args:
-        - VITE_API_URL=/api
-        - VITE_INGESTION_URL=/ingestion
-    container_name: dnapulse-frontend
-    depends_on:
-      - backend
-    networks:
-      - dnapulse-dev
-      - web
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=web
-      - traefik.http.routers.dnapulse.rule=Host(`dnapulse.dnacybersolutions.ca`)
-      - traefik.http.routers.dnapulse.entrypoints=web
-      - traefik.http.services.dnapulse.loadbalancer.server.port=80
-    restart: unless-stopped
+  build:
+    context: apps/webapp/frontend
+    dockerfile: Dockerfile
+    args:
+      - VITE_API_URL=/api
+      - VITE_INGESTION_URL=/ingestion
+  container_name: dnapulse-frontend
+  ports:
+    - '5173:80'
+  depends_on:
+    - backend
+  networks:
+    - dnapulse-dev
+  restart: unless-stopped
 
 networks:
   dnapulse-dev:
     driver: bridge
-  web:
-    external: true
 
 volumes:
   es-dev-data:
