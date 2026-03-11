@@ -238,20 +238,21 @@ services:
 
   # Frontend
   frontend:
-  build:
-    context: apps/webapp/frontend
-    dockerfile: Dockerfile
-    args:
-      - VITE_API_URL=/api
-      - VITE_INGESTION_URL=/ingestion
-  container_name: dnapulse-frontend
-  ports:
-    - '5173:80'
-  depends_on:
-    - backend
-  networks:
-    - dnapulse-dev
-  restart: unless-stopped
+    build:
+      context: apps/webapp/frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api
+        - VITE_INGESTION_URL=/ingestion
+    container_name: dnapulse-frontend
+    ports:
+      - '5173:80'
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - dnapulse-dev
+    restart: unless-stopped
 
 networks:
   dnapulse-dev:
