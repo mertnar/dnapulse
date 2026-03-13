@@ -214,12 +214,14 @@ Processing servisinde tüm data model'lerin config dosyalarından yeni data mode
 
 
 2. aşama:
-  - Live Monitor ve Detection & Investigation sayfalarını elk search şeklinde yap
-  - Live Monitor ve D&I da index bazlı çalışmasını sağla
+  - Live Monitor ve Detection & Investigation sayfalarını elk search şeklinde yap +
+  - Live Monitor ve D&I da index bazlı çalışmasını sağla +
   - Events listesi olarak ya da seçilen field'lar için tablo şeklinde görünüm sağlanabilir olmalıdır.
   - Event ayrıntısında parsed data görünümü için çalışma
   - Ayrıntılı investigation özellikleri ekle
   - Dashboard oluşturabilme ve uygulama ana dashboard olarak atayabilme
+  - Data model'a yeni attribute ekle +
+  - Yeni data model oluştur +
   -
 1. Kullanıcı sayfayı açar
    ↓
@@ -236,3 +238,6 @@ Processing servisinde tüm data model'lerin config dosyalarından yeni data mode
 7. Elasticsearch sonuçları döner
    ↓
 8. Event'ler ve histogram gösterilir
+
+Deployment:
+Tunnel credentials written to /home/mert/.cloudflared/5fa59301-3fb6-4d49-afa2-3f5ace1f5dbf.json.
